@@ -45,6 +45,8 @@ add_executable(sport_mode_ctrl src/sport_mode_ctrl.cpp src/common/ros2_sport_cli
 add_executable(walk_ramp src/walk_ramp.cpp src/common/ros2_sport_client.cpp)
 add_executable(walk_with_tilt src/walk_with_tilt.cpp src/common/ros2_sport_client.cpp)
 add_executable(walk_with_height src/walk_with_height.cpp src/common/ros2_sport_client.cpp)
+add_executable(sin_traj_with_height src/sin_traj_with_height.cpp src/common/ros2_sport_client.cpp)
+add_executable(sin_traj_with_tilt src/sin_traj_with_tilt.cpp src/common/ros2_sport_client.cpp)
 
 ament_target_dependencies(low_level_ctrl ${DEPENDENCY_LIST})
 ament_target_dependencies(read_low_state ${DEPENDENCY_LIST})
@@ -55,6 +57,8 @@ ament_target_dependencies(sport_mode_ctrl ${DEPENDENCY_LIST})
 ament_target_dependencies(walk_ramp ${DEPENDENCY_LIST})
 ament_target_dependencies(walk_with_tilt ${DEPENDENCY_LIST})
 ament_target_dependencies(walk_with_height ${DEPENDENCY_LIST})
+ament_target_dependencies(sin_traj_with_height ${DEPENDENCY_LIST})
+ament_target_dependencies(sin_traj_with_tilt ${DEPENDENCY_LIST})
 
 
 install(TARGETS
@@ -66,6 +70,8 @@ install(TARGETS
         walk_ramp
         walk_with_tilt
         walk_with_height
+        sin_traj_with_height
+        sin_traj_with_tilt
         DESTINATION)
 
 
