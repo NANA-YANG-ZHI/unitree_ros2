@@ -42,6 +42,9 @@ add_executable(read_motion_state src/read_motion_state.cpp)
 add_executable(read_wireless_controller src/read_wireless_controller.cpp)
 #add_executable(record_bag src/record_bag.cpp)
 add_executable(sport_mode_ctrl src/sport_mode_ctrl.cpp src/common/ros2_sport_client.cpp)
+add_executable(rotate_in_place src/rotate_in_place.cpp src/common/ros2_sport_client.cpp)
+add_executable(walk_with_tilt src/walk_with_tilt.cpp src/common/ros2_sport_client.cpp)
+add_executable(walk_with_height src/walk_with_height.cpp src/common/ros2_sport_client.cpp)
 
 ament_target_dependencies(low_level_ctrl ${DEPENDENCY_LIST})
 ament_target_dependencies(read_low_state ${DEPENDENCY_LIST})
@@ -49,6 +52,9 @@ ament_target_dependencies(read_motion_state ${DEPENDENCY_LIST})
 ament_target_dependencies(read_wireless_controller ${DEPENDENCY_LIST})
 #ament_target_dependencies(record_bag ${DEPENDENCY_LIST})
 ament_target_dependencies(sport_mode_ctrl ${DEPENDENCY_LIST})
+ament_target_dependencies(rotate_in_place ${DEPENDENCY_LIST})
+ament_target_dependencies(walk_with_tilt ${DEPENDENCY_LIST})
+ament_target_dependencies(walk_with_height ${DEPENDENCY_LIST})
 
 
 install(TARGETS 
@@ -57,6 +63,9 @@ install(TARGETS
         read_motion_state
         read_wireless_controller
         sport_mode_ctrl
+        rotate_in_place
+        walk_with_tilt
+        walk_with_height
         DESTINATION)
 
 
@@ -71,4 +80,15 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_package()
+ add_library(common src/common/motor_crc.cpp src/common/ros2_sport_client.cpp) 
+            ament_target_dependencies(common PUBLIC unitree_go unitree_api rclcpp) 
+            ament_export_targets(common HAS_LIBRARY_TARGET) 
+            install(DIRECTORY include/ DESTINATION include) 
+            install( 
+            TARGETS common 
+            EXPORT common 
+            LIBRARY DESTINATION lib 
+            ARCHIVE DESTINATION lib 
+            RUNTIME DESTINATION bin 
+            INCLUDES DESTINATION include) 
+            ament_package()
