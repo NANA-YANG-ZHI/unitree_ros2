@@ -1,15 +1,15 @@
 """
-Compare recorded rosbag data against the desired trajectory from walk_with_sin_height.
+Compare recorded rosbag data against the desired commands from walk_with_sin_height.
 
-The bag must contain both:
-  /lf/sportmodestate   (unitree_go/msg/SportModeState)  — actual robot state
-  /walk_sin_height/desired  (geometry_msgs/msg/PointStamped) — desired x, y, z_offset
+The bag must contain:
+  /lf/sportmodestate          (unitree_go/msg/SportModeState)    — actual robot state
+  /walk_sin_height/desired    (geometry_msgs/msg/PointStamped)   — desired commands
+    point.x = commanded vx (m/s)
+    point.y = 0
+    point.z = desired absolute body height (body_height_0 + offset), m
 
 Usage (source your ROS2 workspace first):
     python3 compare_trajectory.py <path_to_bag_folder>
-
-Example:
-    python3 compare_trajectory.py walk_sin_height_bag
 """
 
 import sys
@@ -35,7 +35,7 @@ except ImportError:
     sys.exit(1)
 
 # ----------------------------------------------------------------
-# 1. Read bag
+# Read bag
 # ----------------------------------------------------------------
 reader = rosbag2_py.SequentialReader()
 storage_options = rosbag2_py.StorageOptions(uri=bag_path, storage_id="sqlite3")
@@ -55,8 +55,8 @@ for topic in [ACTUAL_TOPIC, DESIRED_TOPIC]:
 print(f"Actual  topic : {ACTUAL_TOPIC}")
 print(f"Desired topic : {DESIRED_TOPIC}")
 
-act_ts, x_act, y_act, z_act, vx_act, yaw_act = [], [], [], [], [], []
-des_ts, x_des, y_des, z_des = [], [], [], []
+act_ts, x_act, y_act, body_height_act, vx_act, yaw_act = [], [], [], [], [], []
+des_ts, vx_des, height_des = [], [], []
 
 while reader.has_next():
     topic, data, ts_ns = reader.read_next()
@@ -67,87 +67,93 @@ while reader.has_next():
         act_ts.append(t_s)
         x_act.append(msg.position[0])
         y_act.append(msg.position[1])
-        z_act.append(msg.body_height)
+        body_height_act.append(msg.body_height)
         vx_act.append(msg.velocity[0])
         yaw_act.append(msg.yaw_speed)
 
     elif topic == DESIRED_TOPIC:
         msg = deserialize_message(data, get_message(type_map[topic]))
         des_ts.append(t_s)
-        x_des.append(msg.point.x)
-        y_des.append(msg.point.y)
-        z_des.append(msg.point.z)
+        vx_des.append(msg.point.x)
+        height_des.append(msg.point.z)
 
 if not act_ts or not des_ts:
     print("ERROR: missing messages — did you record both topics?")
     sys.exit(1)
 
-# Shift both to t=0 from the earliest message in the bag
 t0 = min(act_ts[0], des_ts[0])
 t_act = np.array(act_ts) - t0
 t_des = np.array(des_ts) - t0
 
-x_act  = np.array(x_act);  x_act  -= x_act[0]   # start at origin
-y_act  = np.array(y_act);  y_act  -= y_act[0]
-z_act  = np.array(z_act)
-vx_act = np.array(vx_act)
-yaw_act = np.array(yaw_act)
-
-x_des = np.array(x_des)
-y_des = np.array(y_des)
-z_des = np.array(z_des)
+x_act           = np.array(x_act);  x_act -= x_act[0]
+y_act           = np.array(y_act);  y_act -= y_act[0]
+body_height_act = np.array(body_height_act)
+vx_act          = np.array(vx_act)
+yaw_act         = np.array(yaw_act)
+vx_des          = np.array(vx_des)
+height_des      = np.array(height_des)
 
 print(f"Actual : {len(t_act)} messages, duration {t_act[-1]:.1f} s")
 print(f"Desired: {len(t_des)} messages, duration {t_des[-1]:.1f} s")
 
 # ----------------------------------------------------------------
-# 2. Plot comparison
+# Plot — 3×3 grid
+#   row 0: pos X | pos Y | yaw         (actual only)
+#   row 1: body height | vx | [hidden] (desired + actual)
+#   row 2: height error | vx error | [hidden]
 # ----------------------------------------------------------------
-fig, axes = plt.subplots(2, 3, figsize=(16, 8))
+fig, axes = plt.subplots(3, 3, figsize=(15, 10))
 fig.suptitle("Actual vs Desired — walk_with_sin_height", fontsize=13)
 
-def _plot(ax, t_d, des, t_a, act, ylabel, title):
-    ax.plot(t_d, des, "k--", linewidth=1.2, label="desired")
-    ax.plot(t_a, act, color="steelblue", linewidth=1.0, alpha=0.85, label="actual")
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    ax.legend(fontsize=8)
-    ax.grid(True, alpha=0.4)
+# --- Row 0: actual-only signals ---
+axes[0, 0].plot(t_act, x_act, color="steelblue")
+axes[0, 0].set_title("Position X (actual)")
+axes[0, 0].set_ylabel("X (m)")
 
-_plot(axes[0, 0], t_des, x_des, t_act, x_act, "X (m)",        "Forward Position")
-_plot(axes[0, 1], t_des, y_des, t_act, y_act, "Y (m)",        "Lateral Position")
-_plot(axes[0, 2], t_des, z_des, t_act, z_act, "Z offset (m)", "Body Height Offset")
+axes[0, 1].plot(t_act, y_act, color="steelblue")
+axes[0, 1].set_title("Position Y (actual)")
+axes[0, 1].set_ylabel("Y (m)")
 
-# Forward velocity
-vx_des_interp = np.interp(t_act, t_des, np.gradient(x_des, t_des))
-axes[1, 0].plot(t_act, vx_act, color="steelblue", linewidth=1.0, label="actual vx")
-axes[1, 0].plot(t_des, np.gradient(x_des, t_des), "k--", linewidth=1.2, label="desired vx")
-axes[1, 0].set_xlabel("Time (s)")
-axes[1, 0].set_ylabel("Vx (m/s)")
-axes[1, 0].set_title("Forward Velocity")
+axes[0, 2].plot(t_act, yaw_act, color="steelblue")
+axes[0, 2].set_title("Yaw Speed (actual)")
+axes[0, 2].set_ylabel("rad/s")
+
+# --- Row 1: desired + actual ---
+axes[1, 0].plot(t_des, height_des,      "k--", linewidth=1.2, label="desired")
+axes[1, 0].plot(t_act, body_height_act, color="steelblue", linewidth=1.0, alpha=0.85, label="actual")
+axes[1, 0].set_title("Body Height (absolute)")
+axes[1, 0].set_ylabel("m")
 axes[1, 0].legend(fontsize=8)
-axes[1, 0].grid(True, alpha=0.4)
 
-# Error: desired − actual (interpolate desired onto actual timestamps)
-x_err = np.interp(t_act, t_des, x_des) - x_act
-z_err = np.interp(t_act, t_des, z_des) - z_act
+axes[1, 1].plot(t_des, vx_des, "k--", linewidth=1.2, label="desired")
+axes[1, 1].plot(t_act, vx_act, color="steelblue", linewidth=1.0, alpha=0.85, label="actual")
+axes[1, 1].set_title("Forward Velocity")
+axes[1, 1].set_ylabel("Vx (m/s)")
+axes[1, 1].legend(fontsize=8)
 
-axes[1, 1].plot(t_act, x_err, color="tomato")
-axes[1, 1].axhline(0, color="k", linewidth=0.8)
-axes[1, 1].set_xlabel("Time (s)")
-axes[1, 1].set_ylabel("Error (m)")
-axes[1, 1].set_title("X Position Error (desired − actual)")
-axes[1, 1].grid(True, alpha=0.4)
+axes[1, 2].set_visible(False)
 
-axes[1, 2].plot(t_act, z_err, color="tomato")
-axes[1, 2].axhline(0, color="k", linewidth=0.8)
-axes[1, 2].set_xlabel("Time (s)")
-axes[1, 2].set_ylabel("Error (m)")
-axes[1, 2].set_title("Height Offset Error (desired − actual)")
-axes[1, 2].grid(True, alpha=0.4)
+# --- Row 2: error signals ---
+height_err = np.interp(t_act, t_des, height_des) - body_height_act
+axes[2, 0].plot(t_act, height_err, color="tomato")
+axes[2, 0].axhline(0, color="k", linewidth=0.8)
+axes[2, 0].set_title("Height Error (desired − actual)")
+axes[2, 0].set_ylabel("Error (m)")
+
+vx_err = np.interp(t_act, t_des, vx_des) - vx_act
+axes[2, 1].plot(t_act, vx_err, color="tomato")
+axes[2, 1].axhline(0, color="k", linewidth=0.8)
+axes[2, 1].set_title("Velocity Error (desired − actual)")
+axes[2, 1].set_ylabel("Error (m/s)")
+
+axes[2, 2].set_visible(False)
+
+for row in axes:
+    for ax in row:
+        if ax.get_visible():
+            ax.set_xlabel("Time (s)")
+            ax.grid(True, alpha=0.4)
 
 plt.tight_layout()
 fig.savefig("compare_trajectory.png", dpi=150)
 print("Saved: compare_trajectory.png")
-
