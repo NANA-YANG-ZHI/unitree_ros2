@@ -42,10 +42,10 @@ private:
                 time_temp += time_seg;
                 // Tacking a sin path in x direction
                 // The path is respect to the initial coordinate system
-                float px_local = 0.5 * sin(0.5 * time_temp);
+                float px_local = 0.3 * sin(0.5 * time_temp);
                 float py_local = 0;
                 float yaw_local = 0.;
-                float vx_local = 0.5 * cos(0.5 * time_temp);
+                float vx_local = 0.3 * cos(0.5 * time_temp);
                 float vy_local = 0;
                 float vyaw_local = 0.;
 

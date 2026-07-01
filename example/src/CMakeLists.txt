@@ -47,6 +47,7 @@ add_executable(walk_with_tilt src/walk_with_tilt.cpp src/common/ros2_sport_clien
 add_executable(walk_with_height src/walk_with_height.cpp src/common/ros2_sport_client.cpp)
 add_executable(sin_traj_with_height src/sin_traj_with_height.cpp src/common/ros2_sport_client.cpp)
 add_executable(sin_traj_with_tilt src/sin_traj_with_tilt.cpp src/common/ros2_sport_client.cpp)
+add_executable(rotate_in_place src/rotate_in_place.cpp src/common/ros2_sport_client.cpp)
 
 ament_target_dependencies(low_level_ctrl ${DEPENDENCY_LIST})
 ament_target_dependencies(read_low_state ${DEPENDENCY_LIST})
@@ -59,6 +60,7 @@ ament_target_dependencies(walk_with_tilt ${DEPENDENCY_LIST})
 ament_target_dependencies(walk_with_height ${DEPENDENCY_LIST})
 ament_target_dependencies(sin_traj_with_height ${DEPENDENCY_LIST})
 ament_target_dependencies(sin_traj_with_tilt ${DEPENDENCY_LIST})
+ament_target_dependencies(rotate_in_place ${DEPENDENCY_LIST})
 
 
 install(TARGETS
@@ -72,6 +74,7 @@ install(TARGETS
         walk_with_height
         sin_traj_with_height
         sin_traj_with_tilt
+        rotate_in_place
         DESTINATION)
 
 

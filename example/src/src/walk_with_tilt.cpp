@@ -9,11 +9,11 @@
 
 using std::placeholders::_1;
 
-static constexpr double DT          = 0.02;   // 50 Hz
+static constexpr double DT          = 0.002;  // 500 Hz
 static constexpr double SETTLE_TIME = 1.0;    // seconds to hold tilt before walking
 static constexpr double WALK_TIME   = 4.0;    // seconds of forward walking
 static constexpr double CLEAR_TIME  = 1.0;    // seconds to hold zero tilt after walk
-static constexpr float  VX          = 0.3f;   // forward speed while tilted (m/s)
+static constexpr float  VX          = 0.1f;   // forward speed while tilted (m/s)
 static constexpr float  ROLL_DEG    = 0.0f;   // roll  (degrees) -- set what you want
 static constexpr float  PITCH_DEG   = 5.0f;   // pitch (degrees) -- positive tilts nose up
 
@@ -22,7 +22,7 @@ static inline float deg2rad(float d) { return d * static_cast<float>(M_PI) / 180
 class WalkWithTilt : public rclcpp::Node
 {
 public:
-    WalkWithTilt() : Node("walk_with_tilt"), t_(0.0), ready_(false)
+    WalkWithTilt() : Node("walk_with_tilt"), t_(-1.0)
     {
         state_sub_ = create_subscription<unitree_go::msg::SportModeState>(
             "sportmodestate", 10,
@@ -38,16 +38,16 @@ public:
 private:
     void state_cb(unitree_go::msg::SportModeState::SharedPtr msg)
     {
-        if (!ready_) {
+        if (t_ < 0) {
             RCLCPP_INFO(get_logger(), "IMU rpy: roll=%.2f pitch=%.2f yaw=%.2f",
                         msg->imu_state.rpy[0], msg->imu_state.rpy[1], msg->imu_state.rpy[2]);
-            ready_ = true;
         }
     }
 
     void control_cb()
     {
-        if (!ready_) return;
+        t_ += DT;
+        if (t_ < 0) return;
 
         double phase2 = SETTLE_TIME + WALK_TIME;
         double phase3 = phase2 + CLEAR_TIME;
@@ -78,10 +78,7 @@ private:
 
         } else {
             RCLCPP_INFO_ONCE(get_logger(), "Done.");
-            return;
         }
-
-        t_ += DT;
     }
 
     rclcpp::Subscription<unitree_go::msg::SportModeState>::SharedPtr state_sub_;
@@ -90,7 +87,6 @@ private:
 
     SportClient sport_req_;
     double t_;
-    bool ready_;
 };
 
 int main(int argc, char *argv[])

@@ -9,19 +9,19 @@
 
 using std::placeholders::_1;
 
-static constexpr double DT           = 0.02;   // 50 Hz
+static constexpr double DT           = 0.002;  // 500 Hz
 static constexpr double SETTLE_TIME  = 1.5;    // seconds to reach new height before walking
 static constexpr double WALK_TIME    = 4.0;    // seconds of forward walking
 static constexpr double RESTORE_TIME = 1.5;    // seconds to restore default height
 static constexpr float  VX           = 0.3f;   // forward speed (m/s)
 // BodyHeight offset is relative to default standing height (0.0 = default).
 // Positive raises the body, negative lowers it. Typical range: -0.1 to +0.1 m.
-static constexpr float  HEIGHT_OFFSET = 0.08f; // raise 8 cm above default
+static constexpr float  HEIGHT_OFFSET = 0.05f; // raise 8 cm above default
 
 class WalkWithHeight : public rclcpp::Node
 {
 public:
-    WalkWithHeight() : Node("walk_with_height"), t_(0.0), ready_(false)
+    WalkWithHeight() : Node("walk_with_height"), t_(-1.0)
     {
         state_sub_ = create_subscription<unitree_go::msg::SportModeState>(
             "sportmodestate", 10,
@@ -37,15 +37,15 @@ public:
 private:
     void state_cb(unitree_go::msg::SportModeState::SharedPtr msg)
     {
-        if (!ready_) {
+        if (t_ < 0) {
             RCLCPP_INFO(get_logger(), "Current body height: %.3f m", msg->body_height);
-            ready_ = true;
         }
     }
 
     void control_cb()
     {
-        if (!ready_) return;
+        t_ += DT;
+        if (t_ < 0) return;
 
         double phase2 = SETTLE_TIME + WALK_TIME;
         double phase3 = phase2 + RESTORE_TIME;
@@ -75,10 +75,7 @@ private:
 
         } else {
             RCLCPP_INFO_ONCE(get_logger(), "Done.");
-            return;
         }
-
-        t_ += DT;
     }
 
     rclcpp::Subscription<unitree_go::msg::SportModeState>::SharedPtr state_sub_;
@@ -87,7 +84,6 @@ private:
 
     SportClient sport_req_;
     double t_;
-    bool ready_;
 };
 
 int main(int argc, char *argv[])
