@@ -17,7 +17,6 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 if len(sys.argv) < 2:
     print("Usage: python3 compare_trajectory.py <bag_folder>")
@@ -152,18 +151,3 @@ plt.tight_layout()
 fig.savefig("compare_trajectory.png", dpi=150)
 print("Saved: compare_trajectory.png")
 
-# ----------------------------------------------------------------
-# 3. 3D comparison
-# ----------------------------------------------------------------
-fig2 = plt.figure(figsize=(9, 6))
-ax3d = fig2.add_subplot(111, projection="3d")
-ax3d.plot(x_des, y_des, z_des, "k--", linewidth=1.5, label="desired")
-ax3d.plot(x_act, y_act, z_act, color="steelblue", linewidth=1.5, label="actual")
-ax3d.set_xlabel("X (m)")
-ax3d.set_ylabel("Y (m)")
-ax3d.set_zlabel("Z offset (m)")
-ax3d.set_title("3D Trajectory Comparison")
-ax3d.legend()
-plt.tight_layout()
-fig2.savefig("compare_trajectory_3d.png", dpi=150)
-print("Saved: compare_trajectory_3d.png")
