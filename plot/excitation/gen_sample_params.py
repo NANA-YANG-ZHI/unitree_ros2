@@ -84,10 +84,11 @@ if __name__ == "__main__":
     )
 
     # Matches excitation_pitch_roll.cpp
-    amp = np.deg2rad(10.0)
+    param_range_rad = np.deg2rad(30.0)
     write_params(
-        "excitation_pitch_roll_params.json", order=3, njoints=2, param_range=[amp, amp],
+        "excitation_pitch_roll_params.json", order=3, njoints=2,
+        param_range=[param_range_rad, param_range_rad],
         duration=10.0, q0=[0.0, 0.0], seed=42,
         extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 10.0, "restore_time": 1.0,
-               "amp_limit_deg": 10.0},
+               "param_range_deg": 30.0, "clamp_limit_deg": 20.0},
     )

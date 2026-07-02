@@ -28,9 +28,19 @@ static inline float deg2rad(double d) { return static_cast<float>(d * M_PI / 180
 // njoints = 2: [roll, pitch] (rad).
 static constexpr int    ORDER          = 3;
 static constexpr int    NJOINTS        = 2;
-static constexpr double AMP_LIMIT_DEG  = 10.0;  // deg, matches walk_with_sin_roll.cpp spec
+// Raw coefficient scale (excitation.cpp attenuates this by ~1/(2*omega_f*k) in
+// eval(), so the *actual* swing comes out well below PARAM_RANGE_DEG -- e.g.
+// with order=3 and duration=10s, actual swing is roughly ~25% of this value.
+// Tune from the plot: bigger PARAM_RANGE_DEG or bigger EXCITE_TIME both make
+// the actual swing bigger.
+static constexpr double PARAM_RANGE_DEG = 30.0;  // deg
 static const std::vector<double> PARAM_RANGE = {
-    AMP_LIMIT_DEG * M_PI / 180.0, AMP_LIMIT_DEG * M_PI / 180.0};  // rad; tune from the plot
+    PARAM_RANGE_DEG * M_PI / 180.0, PARAM_RANGE_DEG * M_PI / 180.0};  // rad
+// Hard safety clamp applied to the final commanded value, independent of
+// PARAM_RANGE_DEG above. Unitree Euler() spec is roll/pitch +-0.75 rad
+// (~43 deg); this stays well under that while leaving headroom above the
+// expected actual swing so the sinusoid isn't clipped into a flat top.
+static constexpr double CLAMP_LIMIT_DEG = 20.0;  // deg
 static constexpr unsigned SEED = 42;  // change for a different random "tryout"
 
 static const char *PARAMS_FILE = "excitation_pitch_roll_params.json";
@@ -67,7 +77,8 @@ private:
         j["settle_time"] = SETTLE_TIME;
         j["excite_time"] = EXCITE_TIME;
         j["restore_time"] = RESTORE_TIME;
-        j["amp_limit_deg"] = AMP_LIMIT_DEG;
+        j["param_range_deg"] = PARAM_RANGE_DEG;
+        j["clamp_limit_deg"] = CLAMP_LIMIT_DEG;
         std::ofstream out(PARAMS_FILE);
         out << j.dump(2);
         RCLCPP_INFO(get_logger(), "Wrote excitation params to %s", PARAMS_FILE);
@@ -110,8 +121,8 @@ private:
             return;
         }
 
-        roll  = clamp(roll,  deg2rad(AMP_LIMIT_DEG));
-        pitch = clamp(pitch, deg2rad(AMP_LIMIT_DEG));
+        roll  = clamp(roll,  deg2rad(CLAMP_LIMIT_DEG));
+        pitch = clamp(pitch, deg2rad(CLAMP_LIMIT_DEG));
 
         unitree_api::msg::Request req_e, req_m;
         sport_req_.Euler(req_e, static_cast<float>(roll), static_cast<float>(pitch), 0.0f);

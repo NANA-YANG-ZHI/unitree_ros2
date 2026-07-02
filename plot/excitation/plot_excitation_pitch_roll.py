@@ -11,7 +11,7 @@ Usage:
     python excitation_pitch_roll.py [path/to/excitation_pitch_roll_params.json]
 
 Roll/pitch are the Euler() angles (deg) sent to the robot, clamped to
-±amp_limit_deg.
+±clamp_limit_deg.
 """
 
 import json
@@ -32,7 +32,7 @@ DT      = P["dt"]
 SETTLE_TIME    = P["settle_time"]
 EXCITE_TIME    = P["excite_time"]
 RESTORE_TIME   = P["restore_time"]
-AMP_LIMIT_DEG  = P["amp_limit_deg"]
+CLAMP_LIMIT_DEG = P["clamp_limit_deg"]
 Q0      = np.array(P["q0"])          # (2,) == [0, 0], rad
 A       = np.array(P["A"])           # (order, 2)
 B       = np.array(P["B"])           # (order, 2)
@@ -69,7 +69,7 @@ rp_end = eval_fourier(EXCITE_TIME)[0]
 restore_alpha = np.clip((t[restore_mask] - (SETTLE_TIME + EXCITE_TIME)) / RESTORE_TIME, 0.0, 1.0)
 rp[restore_mask] = rp_end[None, :] + restore_alpha[:, None] * (0.0 - rp_end[None, :])
 
-limit_rad = np.deg2rad(AMP_LIMIT_DEG)
+limit_rad = np.deg2rad(CLAMP_LIMIT_DEG)
 rp_clamped = np.clip(rp, -limit_rad, limit_rad)
 
 rp_deg = np.rad2deg(rp)
@@ -85,8 +85,8 @@ fig.suptitle("Desired Trajectory — excitation_pitch_roll", fontsize=13)
 for i, ax in enumerate(axes):
     ax.plot(t, rp_deg[:, i], color=colors[i], label="unclamped")
     ax.plot(t, rp_clamped_deg[:, i], color="tomato", linestyle="--", linewidth=0.9, label="sent to robot")
-    ax.axhline(AMP_LIMIT_DEG, color="black", linestyle=":", linewidth=0.8, label=f"spec ±{AMP_LIMIT_DEG:.1f} deg")
-    ax.axhline(-AMP_LIMIT_DEG, color="black", linestyle=":", linewidth=0.8)
+    ax.axhline(CLAMP_LIMIT_DEG, color="black", linestyle=":", linewidth=0.8, label=f"clamp ±{CLAMP_LIMIT_DEG:.1f} deg")
+    ax.axhline(-CLAMP_LIMIT_DEG, color="black", linestyle=":", linewidth=0.8)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel(labels[i])
     ax.set_title(labels[i])
