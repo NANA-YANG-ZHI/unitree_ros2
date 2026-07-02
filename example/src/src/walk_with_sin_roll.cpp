@@ -86,8 +86,8 @@ private:
 
             const float roll_start = ROLL_CENTER_DEG +
                 ROLL_AMP_DEG * static_cast<float>(std::sin(2.0 * M_PI * WALK_TIME / ROLL_PERIOD));
-            const float alpha = static_cast<float>((t_ - phase2) / RESTORE_TIME);  // 0 -> 1
-            const float roll_deg = roll_start + alpha * (0.0f - roll_start);
+            const float beta = static_cast<float>((t_ - phase2) / RESTORE_TIME);  // 0 -> 1
+            const float roll_deg = roll_start + beta * (0.0f - roll_start);
             sport_req_.Euler(req, deg2rad(roll_deg), deg2rad(pitch_deg), 0.0f);
             req_pub_->publish(req);
             unitree_api::msg::Request req2;
