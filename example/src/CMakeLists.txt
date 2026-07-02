@@ -50,6 +50,9 @@ add_executable(walk_with_height src/walk_with_height.cpp src/common/ros2_sport_c
 add_executable(walk_with_sin_height src/walk_with_sin_height.cpp src/common/ros2_sport_client.cpp)
 add_executable(walk_with_sin_pitch src/walk_with_sin_pitch.cpp src/common/ros2_sport_client.cpp)
 add_executable(walk_with_sin_roll src/walk_with_sin_roll.cpp src/common/ros2_sport_client.cpp)
+add_executable(excitation_height src/excitation/excitation_height.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
+add_executable(excitation_velocity src/excitation/excitation_velocity.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
+add_executable(excitation_pitch_roll src/excitation/excitation_pitch_roll.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
 
 ament_target_dependencies(low_level_ctrl ${DEPENDENCY_LIST})
 ament_target_dependencies(read_low_state ${DEPENDENCY_LIST})
@@ -63,6 +66,9 @@ ament_target_dependencies(walk_with_height ${DEPENDENCY_LIST})
 ament_target_dependencies(walk_with_sin_height ${DEPENDENCY_LIST})
 ament_target_dependencies(walk_with_sin_pitch ${DEPENDENCY_LIST})
 ament_target_dependencies(walk_with_sin_roll ${DEPENDENCY_LIST})
+ament_target_dependencies(excitation_height ${DEPENDENCY_LIST})
+ament_target_dependencies(excitation_velocity ${DEPENDENCY_LIST})
+ament_target_dependencies(excitation_pitch_roll ${DEPENDENCY_LIST})
 
 
 install(TARGETS
@@ -77,6 +83,9 @@ install(TARGETS
         walk_with_sin_height
         walk_with_sin_pitch
         walk_with_sin_roll
+        excitation_height
+        excitation_velocity
+        excitation_pitch_roll
         DESTINATION)
 
 
@@ -91,7 +100,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
- add_library(common src/common/motor_crc.cpp src/common/ros2_sport_client.cpp) 
+ add_library(common src/common/motor_crc.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
             ament_target_dependencies(common PUBLIC unitree_go unitree_api rclcpp) 
             ament_export_targets(common HAS_LIBRARY_TARGET) 
             install(DIRECTORY include/ DESTINATION include) 
