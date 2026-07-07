@@ -1,9 +1,20 @@
 # Excitation Parameters
 
-Current tuning for the three `FourierExcitation`-based nodes in
+Current tuning (defaults) for the three `FourierExcitation`-based nodes in
 `example/src/src/excitation/`. Each node uses `order=3` Fourier harmonics and
-`seed=42` (change `SEED` in the `.cpp` for a different random "tryout" of the
-same statistical envelope).
+`seed=42` for a "tryout" of the same statistical envelope.
+
+The values below are compile-time defaults but are also exposed as ROS 2
+parameters, so you can override `order`/`param_range`/`excite_time`/`seed`
+(and `h_center` on the height node) at launch instead of rebuilding, e.g.:
+```
+ros2 run <pkg> excitation_height --ros-args -p param_range:=[0.08] -p seed:=7
+ros2 run <pkg> excitation_pitch_roll --ros-args -p param_range_deg:=[20,20]
+ros2 run <pkg> excitation_velocity --ros-args -p param_range:=[0.3,0.2,0.5]
+```
+Hard safety clamps (`h_min`/`h_max`, `CLAMP_LIMIT_DEG`, `VX_LIMIT`/`VY_LIMIT`/
+`VYAW_LIMIT`) stay compile-time constants on purpose — they're the backstop
+that param overrides shouldn't be able to bypass.
 
 Recap of what each knob controls:
 - **`param_range`** — raw amplitude scale for the randomly drawn Fourier

@@ -8,12 +8,14 @@
 
 #include <cmath>
 #include <fstream>
+#include <stdexcept>
 #include "rclcpp/rclcpp.hpp"
 #include "unitree_go/msg/sport_mode_state.hpp"
 #include "unitree_api/msg/request.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "common/ros2_sport_client.h"
 #include "common/excitation.hpp"
+#include "common/param_helpers.hpp"
 
 using std::placeholders::_1;
 
@@ -23,6 +25,9 @@ static constexpr double EXCITE_TIME  = 10.0;   // s: excitation duration
 static constexpr double RESTORE_TIME = 2.0;    // s: ramp back to zero velocity
 
 // Excitation tuning (see excitation.hpp for what each parameter controls).
+// Defaults below; override via ROS 2 params (order, param_range, excite_time,
+// seed) instead of rebuilding, e.g.:
+//   ros2 run <pkg> excitation_velocity --ros-args -p param_range:=[0.3,0.2,0.5] -p seed:=7
 // njoints = 3: [vx, vy, vyaw].
 static constexpr int    ORDER        = 3;
 static constexpr int    NJOINTS      = 3;
@@ -41,10 +46,17 @@ class ExcitationVelocity : public rclcpp::Node
 public:
     ExcitationVelocity()
         : Node("excitation_velocity"), t_(-1.0),
-          exc_(ORDER, NJOINTS, PARAM_RANGE)
+          order_(declare_and_get_int(this, "order", ORDER)),
+          param_range_(declare_and_get_double_array(this, "param_range", PARAM_RANGE)),
+          excite_time_(declare_and_get_double(this, "excite_time", EXCITE_TIME)),
+          seed_(declare_and_get_uint(this, "seed", SEED)),
+          exc_(order_, NJOINTS, param_range_)
     {
-        exc_.generate_random_param(SEED);
-        exc_.set_duration(EXCITE_TIME);
+        if (static_cast<int>(param_range_.size()) != NJOINTS) {
+            throw std::invalid_argument("param_range must have exactly " + std::to_string(NJOINTS) + " element(s)");
+        }
+        exc_.generate_random_param(seed_);
+        exc_.set_duration(excite_time_);
         exc_.set_offset({0.0, 0.0, 0.0});
         write_params_file();
 
@@ -66,7 +78,7 @@ private:
         nlohmann::json j = exc_.to_json();
         j["dt"] = DT;
         j["settle_time"] = SETTLE_TIME;
-        j["excite_time"] = EXCITE_TIME;
+        j["excite_time"] = excite_time_;
         j["restore_time"] = RESTORE_TIME;
         j["vx_limit"] = VX_LIMIT;
         j["vy_limit"] = VY_LIMIT;
@@ -89,7 +101,7 @@ private:
         t_ += DT;
         if (t_ < 0) return;
 
-        const double phase2 = SETTLE_TIME + EXCITE_TIME;
+        const double phase2 = SETTLE_TIME + excite_time_;
         const double phase3 = phase2 + RESTORE_TIME;
 
         unitree_api::msg::Request req;
@@ -104,7 +116,7 @@ private:
             vx = q[0]; vy = q[1]; vyaw = q[2];
 
         } else if (t_ < phase3) {
-            const std::vector<double> q_end = exc_.eval(EXCITE_TIME);
+            const std::vector<double> q_end = exc_.eval(excite_time_);
             const double alpha = (t_ - phase2) / RESTORE_TIME;  // 0 -> 1
             vx   = q_end[0] + alpha * (0.0 - q_end[0]);
             vy   = q_end[1] + alpha * (0.0 - q_end[1]);
@@ -144,6 +156,11 @@ private:
 
     SportClient sport_req_;
     double t_;
+
+    int order_;
+    std::vector<double> param_range_;
+    double excite_time_;
+    unsigned seed_;
     FourierExcitation exc_;
 };
 
