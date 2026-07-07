@@ -8,12 +8,14 @@
 
 #include <cmath>
 #include <fstream>
+#include <stdexcept>
 #include "rclcpp/rclcpp.hpp"
 #include "unitree_go/msg/sport_mode_state.hpp"
 #include "unitree_api/msg/request.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "common/ros2_sport_client.h"
 #include "common/excitation.hpp"
+#include "common/param_helpers.hpp"
 
 using std::placeholders::_1;
 
@@ -25,6 +27,9 @@ static constexpr double RESTORE_TIME = 2.0;    // s: stop and restore default he
 static constexpr float  VX           = 0.1f;   // forward walking speed during excitation (m/s)
 
 // Excitation tuning (see excitation.hpp for what each parameter controls).
+// Defaults below; override via ROS 2 params (order, param_range, excite_time,
+// seed, h_center) instead of rebuilding, e.g.:
+//   ros2 run <pkg> excitation_height --ros-args -p param_range:=[0.08] -p seed:=7
 static constexpr int    ORDER        = 3;
 static constexpr int    NJOINTS      = 1;
 static const std::vector<double> PARAM_RANGE = {0.05};  // m; tune from the plot
@@ -41,11 +46,19 @@ class ExcitationHeight : public rclcpp::Node
 public:
     ExcitationHeight()
         : Node("excitation_height"), t_(-1.0), body_height_0_(-1.0),
-          exc_(ORDER, NJOINTS, PARAM_RANGE)
+          order_(declare_and_get_int(this, "order", ORDER)),
+          param_range_(declare_and_get_double_array(this, "param_range", PARAM_RANGE)),
+          excite_time_(declare_and_get_double(this, "excite_time", EXCITE_TIME)),
+          seed_(declare_and_get_uint(this, "seed", SEED)),
+          h_center_(declare_and_get_double(this, "h_center", H_CENTER)),
+          exc_(order_, NJOINTS, param_range_)
     {
-        exc_.generate_random_param(SEED);
-        exc_.set_duration(EXCITE_TIME);
-        exc_.set_offset({H_CENTER});
+        if (static_cast<int>(param_range_.size()) != NJOINTS) {
+            throw std::invalid_argument("param_range must have exactly " + std::to_string(NJOINTS) + " element(s)");
+        }
+        exc_.generate_random_param(seed_);
+        exc_.set_duration(excite_time_);
+        exc_.set_offset({h_center_});
         write_params_file();
 
         state_sub_ = create_subscription<unitree_go::msg::SportModeState>(
@@ -66,7 +79,7 @@ private:
         nlohmann::json j = exc_.to_json();
         j["dt"] = DT;
         j["settle_time"] = SETTLE_TIME;
-        j["excite_time"] = EXCITE_TIME;
+        j["excite_time"] = excite_time_;
         j["restore_time"] = RESTORE_TIME;
         j["vx"] = VX;
         j["h_min"] = H_MIN;
@@ -89,14 +102,14 @@ private:
         t_ += DT;
         if (t_ < 0) return;
 
-        const double phase2 = SETTLE_TIME + EXCITE_TIME;
+        const double phase2 = SETTLE_TIME + excite_time_;
         const double phase3 = phase2 + RESTORE_TIME;
 
         unitree_api::msg::Request req_h, req_m;
         double des_h = 0.0, des_vx = 0.0;
 
         if (t_ < SETTLE_TIME) {
-            des_h  = H_CENTER;
+            des_h  = h_center_;
             des_vx = 0.0;
             sport_req_.BodyHeight(req_h, clamp_height(des_h));
             req_pub_->publish(req_h);
@@ -111,7 +124,7 @@ private:
             req_pub_->publish(req_m);
 
         } else if (t_ < phase3) {
-            const double h_start = exc_.eval(EXCITE_TIME)[0];
+            const double h_start = exc_.eval(excite_time_)[0];
             const double alpha = (t_ - phase2) / RESTORE_TIME;  // 0 -> 1
             des_h  = h_start + alpha * (0.0 - h_start);
             des_vx = 0.0;
@@ -150,6 +163,12 @@ private:
     SportClient sport_req_;
     double t_;
     double body_height_0_;
+
+    int order_;
+    std::vector<double> param_range_;
+    double excite_time_;
+    unsigned seed_;
+    double h_center_;
     FourierExcitation exc_;
 };
 

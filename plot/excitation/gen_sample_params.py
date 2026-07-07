@@ -69,7 +69,7 @@ def write_params(path, order, njoints, param_range, duration, q0, seed, extra):
 if __name__ == "__main__":
     # Matches excitation_height.cpp
     write_params(
-        "excitation_height_params.json", order=3, njoints=1, param_range=[0.05],
+        "excitation_height_params.json", order=3, njoints=1, param_range=[0.1],
         duration=10.0, q0=[-0.075], seed=42,
         extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 10.0, "restore_time": 2.0,
                "vx": 0.1, "h_min": -0.18, "h_max": 0.03},
@@ -77,14 +77,14 @@ if __name__ == "__main__":
 
     # Matches excitation_velocity.cpp
     write_params(
-        "excitation_velocity_params.json", order=3, njoints=3, param_range=[0.25, 0.15, 0.4],
+        "excitation_velocity_params.json", order=3, njoints=3, param_range=[0.4, 0.25, 0.8],
         duration=10.0, q0=[0.0, 0.0, 0.0], seed=42,
         extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 10.0, "restore_time": 2.0,
                "vx_limit": 0.4, "vy_limit": 0.25, "vyaw_limit": 0.8},
     )
 
     # Matches excitation_pitch_roll.cpp
-    param_range_rad = np.deg2rad(30.0)
+    param_range_rad = np.deg2rad(40.0)
     write_params(
         "excitation_pitch_roll_params.json", order=3, njoints=2,
         param_range=[param_range_rad, param_range_rad],

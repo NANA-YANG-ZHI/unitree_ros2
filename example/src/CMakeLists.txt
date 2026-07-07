@@ -53,6 +53,7 @@ add_executable(walk_with_sin_roll src/walk_with_sin_roll.cpp src/common/ros2_spo
 add_executable(excitation_height src/excitation/excitation_height.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
 add_executable(excitation_velocity src/excitation/excitation_velocity.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
 add_executable(excitation_pitch_roll src/excitation/excitation_pitch_roll.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
+add_executable(excitation_combined src/excitation/excitation_combined.cpp src/common/ros2_sport_client.cpp src/common/excitation.cpp)
 
 ament_target_dependencies(low_level_ctrl ${DEPENDENCY_LIST})
 ament_target_dependencies(read_low_state ${DEPENDENCY_LIST})
@@ -69,6 +70,7 @@ ament_target_dependencies(walk_with_sin_roll ${DEPENDENCY_LIST})
 ament_target_dependencies(excitation_height ${DEPENDENCY_LIST})
 ament_target_dependencies(excitation_velocity ${DEPENDENCY_LIST})
 ament_target_dependencies(excitation_pitch_roll ${DEPENDENCY_LIST})
+ament_target_dependencies(excitation_combined ${DEPENDENCY_LIST})
 
 
 install(TARGETS
@@ -86,6 +88,7 @@ install(TARGETS
         excitation_height
         excitation_velocity
         excitation_pitch_roll
+        excitation_combined
         DESTINATION)
 
 
