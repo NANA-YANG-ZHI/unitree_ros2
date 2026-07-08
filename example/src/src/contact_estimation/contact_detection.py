@@ -83,11 +83,12 @@ def trans_trunk_to_foot_world_aligned(pino_model, pino_data, foot_name):
 
 def trans_foot_world_aligned_to_trunk_extended(pino_model, pino_data, foot_name):
     X_foot_world_aligned_to_trunk = trans_foot_world_aligned_to_trunk(pino_model, pino_data, foot_name)
-    identity = np.eye(13)
+    n_actuated = pino_model.nv - 6
+    identity = np.eye(n_actuated)
     X_foot_world_aligned_to_trunk_extended = np.block([
-                                                        [X_foot_world_aligned_to_trunk, np.zeros((6, 13))],
-                                                        [np.zeros((13, 6)), identity]
-                                                      ])                          
+                                                        [X_foot_world_aligned_to_trunk, np.zeros((6, n_actuated))],
+                                                        [np.zeros((n_actuated, 6)), identity]
+                                                      ])
     return X_foot_world_aligned_to_trunk_extended
 
 def compute_jacobian_feet_combined_T(pino_model, pino_data, q):
