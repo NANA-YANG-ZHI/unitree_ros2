@@ -24,10 +24,7 @@ import matplotlib.pyplot as plt
 # foot_force / foot_force_est column order, per LowState.msg convention
 FOOT_NAMES = ["FR", "FL", "RR", "RL"]
 
-DEFAULT_NPZ_PATH = (
-    Path(__file__).resolve().parents[3] / "data" / "2026_07_07" / "usable_data"
-    / "excitation_bag_v4_foot_forces.npz"
-)
+DEFAULT_NPZ_PATH = Path(__file__).resolve().parent / "excitation_bag_v4_foot_forces.npz"
 
 
 def plot_foot_forces(npz_path):
