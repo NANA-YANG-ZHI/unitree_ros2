@@ -8,8 +8,8 @@ osrf/ros:foxy-desktop Docker container from docker/ with `pip3 install pin`):
     python3 run_contact_estimation.py \
         /path/to/example/data/2026_07_07/usable_data/excitation_bag_v4
 
-Writes <bag_path>_contact_estimate.npz next to the bag by default (override
-with --out). Load it back with:
+Writes <bag_path>_contact_estimate.npz to plot/contact_estimation/ by default
+(override with --out). Load it back with:
 
     data = np.load("excitation_bag_v4_contact_estimate.npz")
     data["t"], data["contact_states"], data["est_fz_filtered"], ...
@@ -17,6 +17,7 @@ with --out). Load it back with:
 
 import argparse
 import os
+from pathlib import Path
 
 import numpy as np
 
@@ -27,6 +28,9 @@ from bag_reader import read_lowstate_bag
 # z-axis columns of its 12-dim est_f/est_f_filtered vectors (indices 2,5,8,11).
 FOOT_NAMES = ["fl_foot", "fr_foot", "rl_foot", "rr_foot"]
 FOOT_Z_INDEX = [2, 5, 8, 11]
+
+# example/src/src/contact_estimation/run_contact_estimation.py -> repo root -> plot/contact_estimation
+DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "contact_estimation"
 
 
 def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None):
@@ -54,7 +58,8 @@ def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None)
 
     if out_path is None:
         bag_name = os.path.basename(os.path.normpath(bag_path))
-        out_path = os.path.join(os.path.dirname(os.path.normpath(bag_path)), f"{bag_name}_contact_estimate.npz")
+        DEFAULT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = str(DEFAULT_OUT_DIR / f"{bag_name}_contact_estimate.npz")
 
     np.savez(
         out_path,
