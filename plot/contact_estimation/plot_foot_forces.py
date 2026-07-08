@@ -27,33 +27,29 @@ FOOT_NAMES = ["FR", "FL", "RR", "RL"]
 DEFAULT_NPZ_PATH = Path(__file__).resolve().parent / "excitation_bag_v4_foot_forces.npz"
 
 
+def _plot_one(t, values, title_prefix, out_path):
+    n_feet = len(FOOT_NAMES)
+    fig, axes = plt.subplots(n_feet, 1, sharex=True, figsize=(10, 2.2 * n_feet))
+
+    for i, foot_name in enumerate(FOOT_NAMES):
+        axes[i].plot(t, values[:, i], color=f"C{i}")
+        axes[i].set_title(f"{title_prefix}: {foot_name}")
+        axes[i].set_ylabel("force")
+        axes[i].grid(True)
+    axes[-1].set_xlabel("time (s)")
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    print(f"Saved {out_path}")
+
+
 def plot_foot_forces(npz_path):
     data = np.load(npz_path)
     t, foot_force, foot_force_est = data["t"], data["foot_force"], data["foot_force_est"]
 
-    fig, axes = plt.subplots(2, 1, sharex=True, figsize=(10, 8))
-
-    for i, foot_name in enumerate(FOOT_NAMES):
-        axes[0].plot(t, foot_force[:, i], label=foot_name)
-    axes[0].set_title("foot_force (raw sensor)")
-    axes[0].set_ylabel("force")
-    axes[0].legend()
-    axes[0].grid(True)
-
-    for i, foot_name in enumerate(FOOT_NAMES):
-        axes[1].plot(t, foot_force_est[:, i], label=foot_name)
-    axes[1].set_title("foot_force_est (onboard estimate)")
-    axes[1].set_xlabel("time (s)")
-    axes[1].set_ylabel("force")
-    axes[1].legend()
-    axes[1].grid(True)
-
-    fig.suptitle(f"Foot forces: {npz_path}")
-    fig.tight_layout()
-
-    out_path = Path(npz_path).with_suffix("").name + "_foot_forces.png"
-    fig.savefig(out_path, dpi=150)
-    print(f"Saved {out_path}")
+    stem = Path(npz_path).with_suffix("").name
+    _plot_one(t, foot_force, "foot_force (raw sensor)", f"{stem}_foot_force.png")
+    _plot_one(t, foot_force_est, "foot_force_est (onboard estimate)", f"{stem}_foot_force_est.png")
 
 
 if __name__ == "__main__":
