@@ -16,6 +16,8 @@ Defaults to example/data/2026_07_07/usable_data/excitation_bag_v4_foot_forces.np
 import sys
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -51,7 +53,10 @@ def plot_foot_forces(npz_path):
 
     fig.suptitle(f"Foot forces: {npz_path}")
     fig.tight_layout()
-    plt.show()
+
+    out_path = Path(npz_path).with_suffix("").name + "_foot_forces.png"
+    fig.savefig(out_path, dpi=150)
+    print(f"Saved {out_path}")
 
 
 if __name__ == "__main__":

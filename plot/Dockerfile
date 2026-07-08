@@ -4,4 +4,4 @@ RUN pip install --no-cache-dir numpy matplotlib
 
 WORKDIR /workspace
 
-CMD ["python", "walk_with_sin_height.py"]
+CMD ["tail", "-f", "/dev/null"]
