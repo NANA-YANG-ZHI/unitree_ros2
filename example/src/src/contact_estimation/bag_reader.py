@@ -38,6 +38,7 @@ class Go2BagSamples:
     q: np.ndarray              # (N, 19) Pinocchio configuration
     v: np.ndarray              # (N, 18) Pinocchio generalized velocity
     tau: np.ndarray            # (N, 12) actuated-joint torques, order == joint_order == v[:, 6:18]
+    foot_force: np.ndarray      # (N, 4), [FR,FL,RR,RL] order -- raw foot force sensor, not required by the pipeline
     foot_force_est: np.ndarray  # (N, 4), [FR,FL,RR,RL] order -- onboard reference signal, not required by the pipeline
     joint_order: list          # length-12 MJCF joint names, matches tau's column order
     dt: float
@@ -74,6 +75,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
     motor_q = []
     motor_dq = []
     motor_tau = []
+    foot_force = []
     foot_force_est = []
 
     sportmode_t = []
@@ -91,6 +93,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
             motor_q.append(np.array([msg.motor_state[i].q for i in range(12)], dtype=float))
             motor_dq.append(np.array([msg.motor_state[i].dq for i in range(12)], dtype=float))
             motor_tau.append(np.array([msg.motor_state[i].tau_est for i in range(12)], dtype=float))
+            foot_force.append(np.array(msg.foot_force, dtype=float))
             foot_force_est.append(np.array(msg.foot_force_est, dtype=float))
 
         elif use_sportmode_velocity and topic == SPORTMODE_TOPIC:
@@ -111,6 +114,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
     motor_q = np.array(motor_q)[order_idx]
     motor_dq = np.array(motor_dq)[order_idx]
     motor_tau = np.array(motor_tau)[order_idx]
+    foot_force = np.array(foot_force)[order_idx]
     foot_force_est = np.array(foot_force_est)[order_idx]
 
     t0 = lowstate_t[0]
@@ -139,6 +143,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
     motor_q_r = interp_cols(lowstate_t, motor_q)
     motor_dq_r = interp_cols(lowstate_t, motor_dq)
     motor_tau_r = interp_cols(lowstate_t, motor_tau)
+    foot_force_r = interp_cols(lowstate_t, foot_force)
     foot_force_est_r = interp_cols(lowstate_t, foot_force_est)
 
     if use_sportmode_velocity:
@@ -173,7 +178,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
 
     return Go2BagSamples(
         t=t_grid, q=q, v=v, tau=tau,
-        foot_force_est=foot_force_est_r,
+        foot_force=foot_force_r, foot_force_est=foot_force_est_r,
         joint_order=joint_order, dt=dt,
     )
 
