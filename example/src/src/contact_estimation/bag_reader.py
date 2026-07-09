@@ -32,6 +32,22 @@ LOWSTATE_TOPIC = "/lowstate"
 SPORTMODE_TOPIC = "/lf/sportmodestate"
 
 
+def _quat_xyzw_to_rotmat(quat_xyzw):
+    """Batched xyzw quaternion -> rotation matrix R such that v_world = R @ v_body."""
+    x, y, z, w = quat_xyzw[:, 0], quat_xyzw[:, 1], quat_xyzw[:, 2], quat_xyzw[:, 3]
+    R = np.empty((quat_xyzw.shape[0], 3, 3))
+    R[:, 0, 0] = 1 - 2 * (y**2 + z**2)
+    R[:, 0, 1] = 2 * (x * y - z * w)
+    R[:, 0, 2] = 2 * (x * z + y * w)
+    R[:, 1, 0] = 2 * (x * y + z * w)
+    R[:, 1, 1] = 1 - 2 * (x**2 + z**2)
+    R[:, 1, 2] = 2 * (y * z - x * w)
+    R[:, 2, 0] = 2 * (x * z - y * w)
+    R[:, 2, 1] = 2 * (y * z + x * w)
+    R[:, 2, 2] = 1 - 2 * (x**2 + y**2)
+    return R
+
+
 @dataclass
 class Go2BagSamples:
     t: np.ndarray              # (N,) seconds, relative to first /lowstate sample
@@ -151,7 +167,15 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
         order_idx_s = np.argsort(sportmode_t)
         sportmode_t = sportmode_t[order_idx_s]
         base_lin_vel = np.array(base_lin_vel)[order_idx_s]
-        base_lin_vel_r = interp_cols(sportmode_t, base_lin_vel)
+        base_lin_vel_world_r = interp_cols(sportmode_t, base_lin_vel)
+        # SportModeState.velocity is documented (see read_motion_state.cpp) as
+        # being expressed in the Odometry (world) frame, but Pinocchio's
+        # free-flyer convention -- and thus ContactDetector's M/C/g and
+        # momentum residual -- needs the base's linear velocity in its own
+        # local (body) frame. Rotate world -> body with the IMU orientation,
+        # already resampled onto the same t_grid.
+        R_world_from_body = _quat_xyzw_to_rotmat(quat_xyzw_r)
+        base_lin_vel_r = np.einsum("nji,nj->ni", R_world_from_body, base_lin_vel_world_r)
     else:
         base_lin_vel_r = np.zeros((N, 3))
 
