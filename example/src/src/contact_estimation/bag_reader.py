@@ -94,6 +94,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
                 f"velocity). Available: {list(type_map.keys())}. Pass use_sportmode_velocity=False if you "
                 "intend to supply base velocity some other way (not supported by this function)."
             )
+        print(f"Using '{sportmode_topic}' for base velocity")
 
     lowstate_t = []
     quat_wxyz = []
