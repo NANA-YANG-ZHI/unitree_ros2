@@ -29,7 +29,13 @@ UNITREE_MOTOR_INDEX = {
 }
 
 LOWSTATE_TOPIC = "/lowstate"
-SPORTMODE_TOPIC = "/lf/sportmodestate"
+# Bags record base velocity under one of two names depending on how the robot
+# was set up: "/lf/sportmodestate" is a decimated low-frequency relay (older
+# bags, e.g. excitation_bag_v4-v9); "/sportmodestate" is the native
+# high-frequency topic (e.g. excitation_bag_v95), running at ~/lowstate's own
+# rate. Prefer the low-frequency one when both are present since that's what
+# this pipeline was originally tuned against; fall back to the other.
+SPORTMODE_TOPIC_CANDIDATES = ("/lf/sportmodestate", "/sportmodestate")
 
 
 def _quat_xyzw_to_rotmat(quat_xyzw):
@@ -78,12 +84,16 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
 
     if LOWSTATE_TOPIC not in type_map:
         raise RuntimeError(f"'{LOWSTATE_TOPIC}' not found in bag '{bag_path}'. Available: {list(type_map.keys())}")
-    if use_sportmode_velocity and SPORTMODE_TOPIC not in type_map:
-        raise RuntimeError(
-            f"'{SPORTMODE_TOPIC}' not found in bag '{bag_path}' (needed for base linear velocity). "
-            f"Available: {list(type_map.keys())}. Pass use_sportmode_velocity=False if you intend to "
-            "supply base velocity some other way (not supported by this function)."
-        )
+
+    sportmode_topic = None
+    if use_sportmode_velocity:
+        sportmode_topic = next((t for t in SPORTMODE_TOPIC_CANDIDATES if t in type_map), None)
+        if sportmode_topic is None:
+            raise RuntimeError(
+                f"None of {SPORTMODE_TOPIC_CANDIDATES} found in bag '{bag_path}' (needed for base linear "
+                f"velocity). Available: {list(type_map.keys())}. Pass use_sportmode_velocity=False if you "
+                "intend to supply base velocity some other way (not supported by this function)."
+            )
 
     lowstate_t = []
     quat_wxyz = []
@@ -112,7 +122,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
             foot_force.append(np.array(msg.foot_force, dtype=float))
             foot_force_est.append(np.array(msg.foot_force_est, dtype=float))
 
-        elif use_sportmode_velocity and topic == SPORTMODE_TOPIC:
+        elif use_sportmode_velocity and topic == sportmode_topic:
             msg = deserialize_message(data, get_message(type_map[topic]))
             sportmode_t.append(t_s)
             base_lin_vel.append(np.array(msg.velocity, dtype=float))
@@ -120,7 +130,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
     if not lowstate_t:
         raise RuntimeError(f"No '{LOWSTATE_TOPIC}' messages found in bag '{bag_path}'.")
     if use_sportmode_velocity and not sportmode_t:
-        raise RuntimeError(f"No '{SPORTMODE_TOPIC}' messages found in bag '{bag_path}'.")
+        raise RuntimeError(f"No '{sportmode_topic}' messages found in bag '{bag_path}'.")
 
     lowstate_t = np.array(lowstate_t)
     order_idx = np.argsort(lowstate_t)
