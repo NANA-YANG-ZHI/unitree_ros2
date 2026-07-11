@@ -4,46 +4,6 @@ import yaml
 import os
 
 
-def skewSym(x):
-    return np.array([
-                        [0., -x[2], x[1]],
-                        [x[2], 0., -x[0]],
-                        [-x[1], x[0], 0.]
-                    ])
-
-def spatialForceTransformInverse(E, r):
-    # E: the rotation matrix from child link to parent link, express in the child frame;
-    # r: the translation vector from child link to parent link, express in the child frame;
-    # XForcecInv: transformation matrix for force from child to parent
-    SpatialRotation = np.block([
-                                    [E.T, np.zeros_like(E)],
-                                    [np.zeros_like(E), E.T]
-                               ])
-    SpatialTranslation = np.block([
-                                    [np.identity(len(E)), np.zeros_like(E)],
-                                    [skewSym(r), np.identity(len(E))]
-                                  ])
-    XForceInv = np.dot(SpatialTranslation, SpatialRotation)
-    return XForceInv
-
-def spatialForceTransform(E, r):
-    # E: the rotation matrix from child link to parent link, express in the child frame;
-    # r: the translation vector from child link to parent link, express in the child frame;
-    # Note that the implementation assumes spatial force as [force, torque]^{T}
-    # instead of the classic way of [force, torque]^{T}
-    # XForce: transformation matrix for force from parent to child, e.g. X^b_w @ F_w = F_b,
-    # b stands for body and w stands for world 
-    SpatialRotation = np.block([
-                                    [E, np.zeros_like(E)],
-                                    [np.zeros_like(E), E]
-                               ])
-    SpatialTranslation = np.block([
-                                    [np.identity(len(E)), np.zeros_like(E)],
-                                    [-skewSym(r), np.identity(len(E))]
-                                  ])
-    XForce = np.dot(SpatialRotation, SpatialTranslation)
-    return XForce
-
 def get_tran_world(pino_model, pino_data, frame_name):
     # note that forward kinematics and updateFramePlacements should be called before this function
     # otherwise, the data in pino_data is not updated
@@ -57,71 +17,23 @@ def get_frame_jacobian(pino_model, pino_data, frame_name):
     frame_id = pino_model.getFrameId(frame_name)
     return pino.getFrameJacobian(pino_model, pino_data, frame_id, pino.ReferenceFrame.LOCAL_WORLD_ALIGNED)
 
-def trans_foot_world_aligned_to_trunk(pino_model, pino_data, foot_name):
-    trunk_pos_world_to_local, trunk_rot_local_to_world = get_tran_world(pino_model, pino_data, "body")
-    X_world_to_trunk = spatialForceTransform(trunk_rot_local_to_world.T, trunk_pos_world_to_local)
-    
-    # convert the jacobian to the world frame
-    foot_pos_world, foot_rot_world = get_tran_world(pino_model, pino_data, foot_name)
-    R_world_to_foot_world_aligned = np.eye(3)
-    pos_world_to_foot_world_aligned = foot_pos_world
-    
-    X_foot_world_aligned_to_world = spatialForceTransformInverse(R_world_to_foot_world_aligned, pos_world_to_foot_world_aligned)
-    return X_world_to_trunk @ X_foot_world_aligned_to_world
-
-def trans_trunk_to_foot_world_aligned(pino_model, pino_data, foot_name):
-    trunk_pos_world_to_local, trunk_rot_local_to_world = get_tran_world(pino_model, pino_data, "body")
-    X_trunk_to_world = spatialForceTransformInverse(trunk_rot_local_to_world.T, trunk_pos_world_to_local)
-    
-    # convert the jacobian to the world frame
-    foot_pos_world, foot_rot_world = get_tran_world(pino_model, pino_data, foot_name)
-    R_world_to_foot_world_aligned = np.eye(3)
-    pos_world_to_foot_world_aligned = foot_pos_world
-    
-    X_world_to_foot_world_aligned = spatialForceTransform(R_world_to_foot_world_aligned, pos_world_to_foot_world_aligned)
-    return X_world_to_foot_world_aligned @ X_trunk_to_world
-
-def trans_foot_world_aligned_to_trunk_extended(pino_model, pino_data, foot_name):
-    X_foot_world_aligned_to_trunk = trans_foot_world_aligned_to_trunk(pino_model, pino_data, foot_name)
-    n_actuated = pino_model.nv - 6
-    identity = np.eye(n_actuated)
-    X_foot_world_aligned_to_trunk_extended = np.block([
-                                                        [X_foot_world_aligned_to_trunk, np.zeros((6, n_actuated))],
-                                                        [np.zeros((n_actuated, 6)), identity]
-                                                      ])
-    return X_foot_world_aligned_to_trunk_extended
-
 def compute_jacobian_feet_combined_T(pino_model, pino_data, q):
+    # Generalized force from a pure contact force F applied at the foot is
+    # J_lin(foot)^T @ F, where J_lin(foot) is the foot's LOCAL_WORLD_ALIGNED
+    # linear Jacobian -- that's the whole computation. No CoM lever arm is
+    # needed: re-expressing F in trunk-frame axes (est_f is defined in the
+    # trunk frame) only requires rotating F, not transporting the point of
+    # application, since the force is still physically applied at the foot.
+    pino.computeJointJacobians(pino_model, pino_data, q)
     pino.forwardKinematics(pino_model, pino_data, q)
-    pino.centerOfMass(pino_model, pino_data, q)
     pino.updateFramePlacements(pino_model, pino_data)
-    Js = []
-    
-    # compute the lever arm from the CoM to the contact point
-    com2cons = {}
+    _, R_trunk = get_tran_world(pino_model, pino_data, "body")
     foot_names = ["fl_foot", "fr_foot", "rl_foot", "rr_foot"]
-    for i in range(len(foot_names)):
-        foot_name = foot_names[i]
-        foot_pos_world, foot_rot_world = get_tran_world(pino_model, pino_data, foot_name)
-        com_pos_world = pino_data.com[0]
-        com2con = foot_pos_world - com_pos_world
-        com2cons[foot_name] = com2con
-    
-    for i in range(len(foot_names)):
-        foot_name = foot_names[i]
+    Js = []
+    for foot_name in foot_names:
         J_foot_world_aligned = get_frame_jacobian(pino_model, pino_data, foot_name)
-        # convert the jacobian to the CoM frame
-        X_star_foot_world_aligned_to_trunk_extended = trans_foot_world_aligned_to_trunk_extended(pino_model, pino_data, foot_name) # X_star indicates the transformation for the spatial force
-        X_star_trunk_to_foot_world_aligned = trans_trunk_to_foot_world_aligned(pino_model, pino_data, foot_name)
-        J_trunk = X_star_foot_world_aligned_to_trunk_extended @ J_foot_world_aligned.T @ X_star_trunk_to_foot_world_aligned
-
-        J_trunk_lin = J_trunk[:, :3]
-        J_trunk_rot = J_trunk[:, 3:]
-        
-        # compute the jacobian in the local coordinate
-        com2con = com2cons[foot_name]
-        J_trunk_combined_T = J_trunk_lin + J_trunk_rot @ skewSym(com2con)
-        Js.append(J_trunk_combined_T)
+        J_foot_lin = J_foot_world_aligned[:3, :]
+        Js.append(J_foot_lin.T @ R_trunk)
     Js = np.hstack(Js)
     return Js
 

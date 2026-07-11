@@ -28,7 +28,7 @@ matplotlib.use("Agg")
 import numpy as np
 import matplotlib.pyplot as plt
 
-DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[1] / "excitation_bag_v95_contact_estimate.npz"
+DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[1] / "excitation_bag_v5_contact_estimate.npz"
 
 # est_fz_filtered columns are [fl, fr, rl, rr]; raw foot_force columns are
 # [FR, FL, RR, RL] (firmware order, see bag_reader.py). This maps each
