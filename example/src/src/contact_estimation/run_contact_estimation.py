@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
-from go2_model import load_go2_model, make_go2_contact_detector
+from go2_model import DEFAULT_URDF_PATH, load_go2_model, make_go2_contact_detector
 from bag_reader import read_lowstate_bag
 
 # Matches ContactDetector.foot_names order (contact_detection.py) and the
@@ -94,7 +94,12 @@ if __name__ == "__main__":
     parser.add_argument("--bandwidth", type=float, default=30, help="Observer bandwidth in rad/s (default: 30)")
     parser.add_argument("--alg", default="mixing", choices=["hg", "sliding", "mixing"], help="Observer injection law (default: mixing)")
     parser.add_argument("--resample-freq", type=float, default=None, help="Resample frequency in Hz (default: auto-derived from the bag's /lowstate rate)")
-    parser.add_argument("--urdf", default=None, help="Path to a Go2 URDF (e.g. quad-stack/robots/go2_description/urdf/go2.urdf) to use instead of the default vendored MJCF")
+    parser.add_argument(
+        "--urdf", nargs="?", const=str(DEFAULT_URDF_PATH), default=None,
+        help="Use a Go2 URDF instead of the default vendored MJCF. Bare "
+             f"--urdf uses the vendored copy ({DEFAULT_URDF_PATH}); "
+             "--urdf PATH uses a different URDF.",
+    )
     args = parser.parse_args()
 
     run(

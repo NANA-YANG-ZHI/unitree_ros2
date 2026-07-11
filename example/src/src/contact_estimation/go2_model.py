@@ -1,9 +1,12 @@
 """
 Build a Pinocchio Model/Data for the Unitree Go2, from either the MJCF model
 vendored at example/model/go2.xml (google-deepmind/mujoco_menagerie/unitree_go2,
-the default) or a URDF such as quad-stack's robots/go2_description/urdf/go2.urdf
-(pass urdf_path= to load_go2_model). Either way, patch in the Pinocchio frames
-contact_detection.py expects ("body", "fl_foot", "fr_foot", "rl_foot",
+the default) or the URDF vendored at example/model/go2_description/urdf/go2.urdf
+(copied from quad-stack's robots/go2_description/urdf/go2.urdf -- meshes were
+not copied since load_go2_model only builds the kinematic Model, not a
+GeometryModel, so mesh files are never read). Pass urdf_path= to
+load_go2_model to use the URDF instead. Either way, patch in the Pinocchio
+frames contact_detection.py expects ("body", "fl_foot", "fr_foot", "rl_foot",
 "rr_foot") since raw MJCF parsing does not produce them, and URDF parsing
 produces them capitalized differently ("FR_foot", not "fr_foot").
 """
@@ -27,6 +30,8 @@ MJCF_BASE_BODY_FRAME_NAME = "base"  # actual body name in go2.xml
 
 # example/src/src/contact_estimation/go2_model.py -> example/model/go2.xml
 DEFAULT_MJCF_PATH = Path(__file__).resolve().parents[3] / "model" / "go2.xml"
+# example/src/src/contact_estimation/go2_model.py -> example/model/go2_description/urdf/go2.urdf
+DEFAULT_URDF_PATH = Path(__file__).resolve().parents[3] / "model" / "go2_description" / "urdf" / "go2.urdf"
 
 
 def _build_pino_model_from_mjcf(mjcf_path: str) -> pino.Model:
