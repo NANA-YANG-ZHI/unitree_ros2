@@ -1,8 +1,11 @@
 """
-Build a Pinocchio Model/Data for the Unitree Go2 from the MJCF model vendored
-at example/model/go2.xml (google-deepmind/mujoco_menagerie/unitree_go2), and
-patch in the Pinocchio frames contact_detection.py expects ("body", "fl_foot",
-"fr_foot", "rl_foot", "rr_foot") since raw MJCF parsing does not produce them.
+Build a Pinocchio Model/Data for the Unitree Go2, from either the MJCF model
+vendored at example/model/go2.xml (google-deepmind/mujoco_menagerie/unitree_go2,
+the default) or a URDF such as quad-stack's robots/go2_description/urdf/go2.urdf
+(pass urdf_path= to load_go2_model). Either way, patch in the Pinocchio frames
+contact_detection.py expects ("body", "fl_foot", "fr_foot", "rl_foot",
+"rr_foot") since raw MJCF parsing does not produce them, and URDF parsing
+produces them capitalized differently ("FR_foot", not "fr_foot").
 """
 
 import os
@@ -26,7 +29,7 @@ MJCF_BASE_BODY_FRAME_NAME = "base"  # actual body name in go2.xml
 DEFAULT_MJCF_PATH = Path(__file__).resolve().parents[3] / "model" / "go2.xml"
 
 
-def _build_pino_model(mjcf_path: str) -> pino.Model:
+def _build_pino_model_from_mjcf(mjcf_path: str) -> pino.Model:
     """Build a floating-base Pinocchio Model from MJCF, defensively across
     Pinocchio versions (the MJCF-loading entry point has drifted -- newer
     releases expose pinocchio.shortcuts.buildModelsFromMJCF, older ones
@@ -46,19 +49,35 @@ def _build_pino_model(mjcf_path: str) -> pino.Model:
 
     raise RuntimeError(
         "No known Pinocchio MJCF-loading API worked on this version; "
-        "inspect `import pinocchio; help(pinocchio)` and update _build_pino_model()."
+        "inspect `import pinocchio; help(pinocchio)` and update _build_pino_model_from_mjcf()."
     )
 
 
-def _add_go2_frames(model: pino.Model) -> None:
-    """Mutates `model` in place, adding the 5 operational frames
-    contact_detection.py requires but raw MJCF parsing does not produce."""
+def _build_pino_model_from_urdf(urdf_path: str) -> pino.Model:
+    """Build a floating-base Pinocchio Model from URDF (e.g. quad-stack's
+    go2_description/urdf/go2.urdf). Unlike MJCF, URDF already declares real
+    "FR_foot"/"FL_foot"/"RL_foot"/"RR_foot" links at the true foot position,
+    so no offset hack is needed to place the foot frames -- see
+    _add_go2_frames_urdf."""
+    return pino.buildModelFromUrdf(urdf_path, pino.JointModelFreeFlyer())
+
+
+def _add_base_alias_frame(model: pino.Model) -> None:
+    """Mutates `model` in place, aliasing the root body frame (named "base"
+    in both go2.xml and go2.urdf) to "body", which contact_detection.py
+    hardcodes for the trunk frame."""
     base_frame_id = model.getFrameId(MJCF_BASE_BODY_FRAME_NAME, pino.FrameType.BODY)
     base_frame = model.frames[base_frame_id]
     model.addFrame(pino.Frame(
         BASE_ALIAS_FRAME_NAME, base_frame.parentJoint, base_frame_id,
         base_frame.placement, pino.FrameType.OP_FRAME,
     ))
+
+
+def _add_go2_frames_mjcf(model: pino.Model) -> None:
+    """Mutates `model` in place, adding the 5 operational frames
+    contact_detection.py requires but raw MJCF parsing does not produce."""
+    _add_base_alias_frame(model)
 
     for leg, foot_name in FOOT_FRAME_NAMES.items():
         calf_frame_id = model.getFrameId(f"{leg}_calf", pino.FrameType.BODY)
@@ -75,23 +94,55 @@ def _add_go2_frames(model: pino.Model) -> None:
         ))
 
 
-def load_go2_model(mjcf_path=None):
-    """Returns (model, data) for the Go2, with the 5 extra frames
-    contact_detection.py needs already patched in."""
-    mjcf_path = str(mjcf_path) if mjcf_path is not None else str(DEFAULT_MJCF_PATH)
-    if not os.path.exists(mjcf_path):
-        raise FileNotFoundError(f"Go2 MJCF model not found at expected path: {mjcf_path}")
+def _add_go2_frames_urdf(model: pino.Model) -> None:
+    """Mutates `model` in place, adding the 5 operational frames
+    contact_detection.py requires. Unlike MJCF, go2.urdf already has real
+    "FR_foot"/"FL_foot"/"RL_foot"/"RR_foot" links at the true foot position
+    (via fixed FR_foot_fixed-style joints off each calf), so this just
+    aliases them to the lowercase names contact_detection.py expects -- no
+    offset hack needed."""
+    _add_base_alias_frame(model)
 
-    model = _build_pino_model(mjcf_path)
+    for leg, foot_name in FOOT_FRAME_NAMES.items():
+        urdf_foot_frame_id = model.getFrameId(f"{leg}_foot", pino.FrameType.BODY)
+        urdf_foot_frame = model.frames[urdf_foot_frame_id]
+        model.addFrame(pino.Frame(
+            foot_name, urdf_foot_frame.parentJoint, urdf_foot_frame_id,
+            urdf_foot_frame.placement, pino.FrameType.OP_FRAME,
+        ))
+
+
+def load_go2_model(mjcf_path=None, urdf_path=None):
+    """Returns (model, data) for the Go2, with the 5 extra frames
+    contact_detection.py needs already patched in.
+
+    By default loads the vendored MJCF (example/model/go2.xml). Pass
+    urdf_path to load a URDF instead (e.g. quad-stack's
+    robots/go2_description/urdf/go2.urdf) -- mjcf_path is ignored when
+    urdf_path is given.
+    """
+    if urdf_path is not None:
+        urdf_path = str(urdf_path)
+        if not os.path.exists(urdf_path):
+            raise FileNotFoundError(f"Go2 URDF model not found at expected path: {urdf_path}")
+        model = _build_pino_model_from_urdf(urdf_path)
+    else:
+        mjcf_path = str(mjcf_path) if mjcf_path is not None else str(DEFAULT_MJCF_PATH)
+        if not os.path.exists(mjcf_path):
+            raise FileNotFoundError(f"Go2 MJCF model not found at expected path: {mjcf_path}")
+        model = _build_pino_model_from_mjcf(mjcf_path)
 
     if model.nq != 19 or model.nv != 18:
         raise AssertionError(
             f"Expected a floating-base Go2 model with nq=19, nv=18; got nq={model.nq}, nv={model.nv}. "
-            "This usually means the MJCF was parsed without a JointModelFreeFlyer root joint, "
+            "This usually means the model was parsed without a JointModelFreeFlyer root joint, "
             "or the model isn't the expected 12-actuated-joint Go2."
         )
 
-    _add_go2_frames(model)
+    if urdf_path is not None:
+        _add_go2_frames_urdf(model)
+    else:
+        _add_go2_frames_mjcf(model)
     data = pino.Data(model)
     return model, data
 

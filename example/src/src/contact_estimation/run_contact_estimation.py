@@ -33,8 +33,8 @@ FOOT_Z_INDEX = [2, 5, 8, 11]
 DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "contact_estimation"
 
 
-def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None):
-    model, data = load_go2_model()
+def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None, urdf_path=None):
+    model, data = load_go2_model(urdf_path=urdf_path)
     samples = read_lowstate_bag(bag_path, model, resample_freq=resample_freq)
 
     # ContactDetector integrates its observer with a fixed dt = 1/freq --
@@ -94,6 +94,7 @@ if __name__ == "__main__":
     parser.add_argument("--bandwidth", type=float, default=30, help="Observer bandwidth in rad/s (default: 30)")
     parser.add_argument("--alg", default="mixing", choices=["hg", "sliding", "mixing"], help="Observer injection law (default: mixing)")
     parser.add_argument("--resample-freq", type=float, default=None, help="Resample frequency in Hz (default: auto-derived from the bag's /lowstate rate)")
+    parser.add_argument("--urdf", default=None, help="Path to a Go2 URDF (e.g. quad-stack/robots/go2_description/urdf/go2.urdf) to use instead of the default vendored MJCF")
     args = parser.parse_args()
 
     run(
@@ -102,4 +103,5 @@ if __name__ == "__main__":
         bandwidth=args.bandwidth,
         alg=args.alg,
         resample_freq=args.resample_freq,
+        urdf_path=args.urdf,
     )
