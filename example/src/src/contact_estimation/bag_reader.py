@@ -202,7 +202,7 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
     # base's absolute world position -- only relative joint configuration
     # and base orientation matter), so it's safely left at the origin.
     q[:, 3:7] = quat_xyzw_r  # Pinocchio quaternion is scalar-last [qx,qy,qz,qw]
-    v[:, 0:3] = base_lin_vel_r  # body-frame linear velocity
+    v[:, 0:3] = base_lin_vel_world_r  # body-frame linear velocity
     v[:, 3:6] = gyro_r          # body-frame angular velocity
 
     for col, joint_name in enumerate(joint_order):

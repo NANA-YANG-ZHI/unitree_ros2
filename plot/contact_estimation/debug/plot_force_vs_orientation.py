@@ -28,7 +28,7 @@ matplotlib.use("Agg")
 import numpy as np
 import matplotlib.pyplot as plt
 
-DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[1] / "excitation_bag_v5_contact_estimate.npz"
+DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[1] / "excitation_bag_v95_contact_estimate.npz"
 
 # est_fz_filtered columns are [fl, fr, rl, rr]; raw foot_force columns are
 # [FR, FL, RR, RL] (firmware order, see bag_reader.py). This maps each
@@ -44,7 +44,10 @@ def quat_xyzw_to_rpy(quat_xyzw):
     roll = np.arctan2(sinr_cosp, cosr_cosp)
     sinp = 2 * (w * y - z * x)
     pitch = np.arcsin(np.clip(sinp, -1, 1))
-    return roll, pitch
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    yaw = np.arctan2(siny_cosp, cosy_cosp)
+    return roll, pitch, yaw
 
 
 def plot_force_vs_orientation(npz_path):
@@ -54,20 +57,26 @@ def plot_force_vs_orientation(npz_path):
     est_fz_filtered = data["est_fz_filtered"]  # (N,4) fl,fr,rl,rr
     raw = data["foot_force"]  # (N,4) FR,FL,RR,RL
 
-    roll, pitch = quat_xyzw_to_rpy(q[:, 3:7])
+    roll, pitch, yaw = quat_xyzw_to_rpy(q[:, 3:7])
 
     n_feet = len(EST_NAMES)
-    fig, axes = plt.subplots(n_feet + 1, 1, sharex=True, figsize=(11, 2.3 * (n_feet + 1)))
+    fig, axes = plt.subplots(n_feet + 2, 1, sharex=True, figsize=(11, 2.3 * (n_feet + 2)))
 
     axes[0].plot(t, np.degrees(roll), label="roll", color="C0")
     axes[0].plot(t, np.degrees(pitch), label="pitch", color="C1")
-    axes[0].set_title("base orientation")
+    axes[0].set_title("base orientation (roll/pitch)")
     axes[0].set_ylabel("deg")
     axes[0].legend()
     axes[0].grid(True)
 
+    axes[1].plot(t, np.degrees(yaw), label="yaw", color="C4")
+    axes[1].set_title("base orientation (yaw)")
+    axes[1].set_ylabel("deg")
+    axes[1].legend()
+    axes[1].grid(True)
+
     for i, name in enumerate(EST_NAMES):
-        ax = axes[i + 1]
+        ax = axes[i + 2]
         ax.plot(t, raw[:, RAW_COL_FOR_EST[name]], label="raw sensor", color="C2", alpha=0.7)
         ax.plot(t, est_fz_filtered[:, i], label="estimate (filtered)", color="C3", alpha=0.9)
         ax.set_title(name)
