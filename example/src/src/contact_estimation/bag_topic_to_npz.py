@@ -21,6 +21,9 @@ from pathlib import Path
 
 import numpy as np
 
+# example/src/src/contact_estimation/bag_topic_to_npz.py -> repo root -> plot/all_bags
+DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "all_bags"
+
 
 def _flatten(prefix, value, out):
     """Recursively flattens a message_to_ordereddict() result into
@@ -80,7 +83,8 @@ def read_topic_to_npz(bag_path, topic_name, out_path=None):
     if out_path is None:
         safe_topic = re.sub(r"[^A-Za-z0-9_]+", "_", topic_name).strip("_")
         bag_path = Path(bag_path)
-        out_path = bag_path.parent / f"{bag_path.name}_{safe_topic}.npz"
+        DEFAULT_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = DEFAULT_OUT_DIR / f"{bag_path.name}_{safe_topic}.npz"
 
     np.savez(out_path, **arrays)
     print(f"Saved {len(t)} samples ({t[-1]:.1f}s) from '{topic_name}' to {out_path}")
@@ -92,7 +96,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("bag_path", help="Path to a rosbag2 folder, e.g. .../usable_data/excitation_bag_v4")
     parser.add_argument("topic_name", help="Topic to dump, e.g. /lowstate or /lf/sportmodestate")
-    parser.add_argument("--out", default=None, help="Output .npz path (default: <bag_path>_<topic>.npz next to the bag)")
+    parser.add_argument("--out", default=None, help="Output .npz path (default: plot/all_bags/<bag_name>_<topic>.npz)")
     args = parser.parse_args()
 
     read_topic_to_npz(args.bag_path, args.topic_name, args.out)

@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import numpy as np
 import matplotlib.pyplot as plt
 
-DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[1] / "excitation_bag_v95_gt_contact_comparison.npz"
+DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[2] / "all_bags" / "excitation_bag_v95_gt_contact_comparison.npz"
 
 
 def plot_gt_contact_comparison(npz_path):

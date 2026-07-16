@@ -47,9 +47,9 @@ import numpy as np
 import go2_model
 from bag_reader import UNITREE_MOTOR_INDEX
 
-DEFAULT_LOWSTATE_NPZ = Path(__file__).resolve().parents[3] / "data" / "2026_07_07" / "usable_data" / "excitation_bag_v95_lowstate.npz"
-DEFAULT_SPORTMODE_NPZ = Path(__file__).resolve().parents[3] / "data" / "2026_07_07" / "usable_data" / "excitation_bag_v95_sportmodestate.npz"
-DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "contact_estimation"
+DEFAULT_LOWSTATE_NPZ = Path(__file__).resolve().parents[4] / "plot" / "all_bags" / "excitation_bag_v95_lowstate.npz"
+DEFAULT_SPORTMODE_NPZ = Path(__file__).resolve().parents[4] / "plot" / "all_bags" / "excitation_bag_v95_sportmodestate.npz"
+DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "all_bags"
 
 FOOT_NAMES = ["fl_foot", "fr_foot", "rl_foot"]  # rr_foot excluded: known-broken sensor
 RAW_COL_FOR_FOOT = {"fl_foot": 1, "fr_foot": 0, "rl_foot": 3}  # firmware order FR,FL,RR,RL; rr(2) excluded
@@ -169,7 +169,7 @@ def main():
                               "(default: computed from data, see printed min/max/mean)")
     parser.add_argument("--lag-window", type=int, default=10,
                          help="Max +/- sample shift to search for best-lag agreement (default: 10)")
-    parser.add_argument("--out", default=None, help="Output .npz path (default: plot/contact_estimation/<name>_gt_contact_comparison.npz)")
+    parser.add_argument("--out", default=None, help="Output .npz path (default: plot/all_bags/<name>_gt_contact_comparison.npz)")
     args = parser.parse_args()
 
     low = np.load(args.lowstate_npz, allow_pickle=True)

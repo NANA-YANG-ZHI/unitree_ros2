@@ -3,7 +3,8 @@ Zoomed-in comparison of the fixed force estimator (est_fz_filtered) against
 the raw onboard sensor (foot_force), for fl_foot/fr_foot/rl_foot stacked.
 Shows a short time window so cycle-by-cycle agreement is visible, with the
 contact thresholds drawn in and a strip marking where the two threshold
-decisions agree/disagree.
+decisions agree/disagree. Each subplot's title reports that same
+green/red agreement as a single matching-score percentage.
 
 rr_foot is excluded: known-broken raw sensor.
 
@@ -11,17 +12,23 @@ Only needs numpy/matplotlib -- run in the plot-tools-run container.
 
 Usage:
     python plot_estimator_vs_sensor_zoom.py [npz_path] [--t0 25] [--t1 33]
+    python plot_estimator_vs_sensor_zoom.py [npz_path] --show   # interactive window instead of saving a PNG
+
+--show needs an interactive matplotlib backend (TkAgg, via python3-tk --
+see plot/Dockerfile) and X11 forwarded into the container (see plot/run.sh).
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")
+if "--show" not in sys.argv:
+    matplotlib.use("Agg")  # non-interactive backend for headless PNG saving
 import numpy as np
 import matplotlib.pyplot as plt
 
-DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[1] / "excitation_bag_v95_contact_estimate.npz"
+DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[2] / "all_bags" / "excitation_bag_v95_contact_estimate.npz"
 
 FOOT_NAMES = ["fl_foot", "fr_foot", "rl_foot"]  # rr_foot excluded: known-broken sensor
 EST_COL_FOR_FOOT = {"fl_foot": 0, "fr_foot": 1, "rl_foot": 2}       # est_fz_filtered order: fl,fr,rl,rr
@@ -31,7 +38,7 @@ EST_THRESHOLD = 25.0
 SENSOR_THRESHOLD = 20.0
 
 
-def plot_zoom(npz_path, t0, t1, out_path):
+def plot_zoom(npz_path, t0, t1, out_path, show=False):
     d = np.load(npz_path, allow_pickle=True)
     t = d["t"]
     est_fz_filtered = d["est_fz_filtered"]
@@ -64,8 +71,8 @@ def plot_zoom(npz_path, t0, t1, out_path):
         ax.axhline(EST_THRESHOLD, color="C0", linestyle="--", linewidth=1, alpha=0.7)
         ax.axhline(SENSOR_THRESHOLD, color="C1", linestyle="--", linewidth=1, alpha=0.7)
 
-        agreement_pct = 100 * np.mean(agree)
-        ax.set_title(f"{name}  (threshold agreement over this window: {agreement_pct:.1f}%)")
+        matching_score = 100 * np.mean(agree)  # % of samples shaded green (same agree array as the shading)
+        ax.set_title(f"{name}  (matching score: {matching_score:.1f}%)")
         ax.set_ylabel("force (N)")
         ax.legend(loc="upper right", fontsize=8)
         ax.set_xlim(t_zoom[0], t_zoom[-1])
@@ -75,8 +82,11 @@ def plot_zoom(npz_path, t0, t1, out_path):
                  f"(green = threshold decisions agree, red = disagree; rr_foot excluded)")
     fig.tight_layout()
 
-    fig.savefig(out_path, dpi=150)
-    print(f"Saved {out_path}")
+    if show:
+        plt.show()
+    else:
+        fig.savefig(out_path, dpi=150)
+        print(f"Saved {out_path}")
 
 
 if __name__ == "__main__":
@@ -85,7 +95,8 @@ if __name__ == "__main__":
     parser.add_argument("--t0", type=float, default=25.0, help="Zoom window start (s)")
     parser.add_argument("--t1", type=float, default=33.0, help="Zoom window end (s)")
     parser.add_argument("--out", default=None, help="Output PNG path (default: <npz_name>_estimator_vs_sensor_zoom.png)")
+    parser.add_argument("--show", action="store_true", help="Open an interactive window instead of saving a PNG")
     args = parser.parse_args()
 
     out_path = args.out or (Path(args.npz_path).with_suffix("").name + "_estimator_vs_sensor_zoom.png")
-    plot_zoom(args.npz_path, args.t0, args.t1, out_path)
+    plot_zoom(args.npz_path, args.t0, args.t1, out_path, show=args.show)

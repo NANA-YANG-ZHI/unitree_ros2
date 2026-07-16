@@ -4,3 +4,6 @@
 **/log/
 **/install/
 example/data/
+plot/all_bags/**.npz
+plot/all_bags/**.png
+plot/all_bags/**.txt

@@ -8,7 +8,7 @@ osrf/ros:foxy-desktop Docker container from docker/ with `pip3 install pin`):
     python3 run_contact_estimation.py \
         /path/to/example/data/2026_07_07/usable_data/excitation_bag_v4
 
-Writes <bag_path>_contact_estimate.npz to plot/contact_estimation/ by default
+Writes <bag_path>_contact_estimate.npz to plot/all_bags/ by default
 (override with --out). Load it back with:
 
     data = np.load("excitation_bag_v4_contact_estimate.npz")
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
-from go2_model import DEFAULT_URDF_PATH, load_go2_model, make_go2_contact_detector
+from go2_model import DEFAULT_MJCF_PATH, DEFAULT_URDF_PATH, load_go2_model, make_go2_contact_detector
 from bag_reader import read_lowstate_bag
 
 # Matches ContactDetector.foot_names order (contact_detection.py) and the
@@ -29,12 +29,13 @@ from bag_reader import read_lowstate_bag
 FOOT_NAMES = ["fl_foot", "fr_foot", "rl_foot", "rr_foot"]
 FOOT_Z_INDEX = [2, 5, 8, 11]
 
-# example/src/src/contact_estimation/run_contact_estimation.py -> repo root -> plot/contact_estimation
-DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "contact_estimation"
+# example/src/src/contact_estimation/run_contact_estimation.py -> repo root -> plot/all_bags
+DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "all_bags"
 
 
-def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None, urdf_path=None):
-    model, data = load_go2_model(urdf_path=urdf_path)
+def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None,
+        urdf_path=DEFAULT_URDF_PATH, mjcf_path=None):
+    model, data = load_go2_model(mjcf_path=mjcf_path, urdf_path=None if mjcf_path is not None else urdf_path)
     samples = read_lowstate_bag(bag_path, model, resample_freq=resample_freq)
 
     # ContactDetector integrates its observer with a fixed dt = 1/freq --
@@ -95,10 +96,14 @@ if __name__ == "__main__":
     parser.add_argument("--alg", default="mixing", choices=["hg", "sliding", "mixing"], help="Observer injection law (default: mixing)")
     parser.add_argument("--resample-freq", type=float, default=None, help="Resample frequency in Hz (default: auto-derived from the bag's /lowstate rate)")
     parser.add_argument(
-        "--urdf", nargs="?", const=str(DEFAULT_URDF_PATH), default=None,
-        help="Use a Go2 URDF instead of the default vendored MJCF. Bare "
-             f"--urdf uses the vendored copy ({DEFAULT_URDF_PATH}); "
-             "--urdf PATH uses a different URDF.",
+        "--urdf", default=str(DEFAULT_URDF_PATH),
+        help=f"Path to the Go2 URDF model to use (default, vendored copy: {DEFAULT_URDF_PATH})",
+    )
+    parser.add_argument(
+        "--mjcf", nargs="?", const=str(DEFAULT_MJCF_PATH), default=None,
+        help="Use an MJCF model instead of the default URDF. Bare "
+             f"--mjcf uses the vendored copy ({DEFAULT_MJCF_PATH}); "
+             "--mjcf PATH uses a different MJCF.",
     )
     args = parser.parse_args()
 
@@ -109,4 +114,5 @@ if __name__ == "__main__":
         alg=args.alg,
         resample_freq=args.resample_freq,
         urdf_path=args.urdf,
+        mjcf_path=args.mjcf,
     )
