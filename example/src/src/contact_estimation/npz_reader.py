@@ -130,17 +130,9 @@ def read_lowstate_npz(lowstate_npz_path, model, sportmode_npz_path=None,
         order_idx_s = np.argsort(sportmode_t)
         sportmode_t = sportmode_t[order_idx_s]
         base_lin_vel = base_lin_vel[order_idx_s]
-        base_lin_vel_world_r = interp_cols(sportmode_t, base_lin_vel)
-        # SportModeState.velocity is documented (see read_motion_state.cpp) as
-        # being expressed in the Odometry (world) frame, but Pinocchio's
-        # free-flyer convention -- and thus ContactDetector's M/C/g and
-        # momentum residual -- needs the base's linear velocity in its own
-        # local (body) frame. Rotate world -> body with the IMU orientation,
-        # already resampled onto the same t_grid.
-        R_world_from_body = _quat_xyzw_to_rotmat(quat_xyzw_r)
-        base_lin_vel_r = np.einsum("nji,nj->ni", R_world_from_body, base_lin_vel_world_r)
+        base_lin_vel = interp_cols(sportmode_t, base_lin_vel)
     else:
-        base_lin_vel_r = np.zeros((N, 3))
+        base_lin_vel = np.zeros((N, 3))
 
     idx_maps = build_joint_index_maps(model)
     joint_order = idx_maps["order"]
@@ -154,7 +146,7 @@ def read_lowstate_npz(lowstate_npz_path, model, sportmode_npz_path=None,
     # base's absolute world position -- only relative joint configuration
     # and base orientation matter), so it's safely left at the origin.
     q[:, 3:7] = quat_xyzw_r  # Pinocchio quaternion is scalar-last [qx,qy,qz,qw]
-    v[:, 0:3] = base_lin_vel_world_r  # body-frame linear velocity
+    v[:, 0:3] = base_lin_vel  # body-frame linear velocity
     v[:, 3:6] = gyro_r          # body-frame angular velocity
 
     for col, joint_name in enumerate(joint_order):
