@@ -12,11 +12,11 @@ by Unitree's firmware independent of our model.
 
 Reads the *raw*, unprocessed per-topic dumps produced by bag_topic_to_npz.py
 (not the resampled/interpolated contact_estimate.npz from run_contact_estimation.py),
-so this script redoes the same parsing bag_reader.py normally does (quaternion
-reorder, motor-index mapping), reusing bag_reader.py's UNITREE_MOTOR_INDEX
+so this script redoes the same parsing npz_reader.py normally does (quaternion
+reorder, motor-index mapping), reusing npz_reader.py's UNITREE_MOTOR_INDEX
 constant rather than re-deriving it.
 
-Critical fix baked into building `q` here: bag_reader.py deliberately leaves
+Critical fix baked into building `q` here: npz_reader.py deliberately leaves
 the base position q[0:3]=0 for real hardware bags (correct for the force
 estimator, which is translation-invariant, but that makes
 apply_contact_detection_gt's absolute-world-Z-height threshold meaningless --
@@ -45,10 +45,10 @@ from pathlib import Path
 import numpy as np
 
 import go2_model
-from bag_reader import UNITREE_MOTOR_INDEX
+from npz_reader import UNITREE_MOTOR_INDEX
 
-DEFAULT_LOWSTATE_NPZ = Path(__file__).resolve().parents[4] / "plot" / "all_bags" / "excitation_bag_v95_lowstate.npz"
-DEFAULT_SPORTMODE_NPZ = Path(__file__).resolve().parents[4] / "plot" / "all_bags" / "excitation_bag_v95_sportmodestate.npz"
+DEFAULT_LOWSTATE_NPZ = Path(__file__).resolve().parents[3] / "data" / "npz_data" / "excitation_bag_v95_lowstate.npz"
+DEFAULT_SPORTMODE_NPZ = Path(__file__).resolve().parents[3] / "data" / "npz_data" / "excitation_bag_v95_sportmodestate.npz"
 DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "all_bags"
 
 FOOT_NAMES = ["fl_foot", "fr_foot", "rl_foot"]  # rr_foot excluded: known-broken sensor

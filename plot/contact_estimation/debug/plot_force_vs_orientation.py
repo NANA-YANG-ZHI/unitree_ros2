@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 DEFAULT_NPZ_PATH = Path(__file__).resolve().parents[2] / "all_bags" / "excitation_bag_v95_contact_estimate.npz"
 
 # est_fz_filtered columns are [fl, fr, rl, rr]; raw foot_force columns are
-# [FR, FL, RR, RL] (firmware order, see bag_reader.py). This maps each
+# [FR, FL, RR, RL] (firmware order, see npz_reader.py). This maps each
 # estimator column to its correctly-paired raw sensor column.
 EST_NAMES = ["fl_foot", "fr_foot", "rl_foot", "rr_foot"]
 RAW_COL_FOR_EST = {"fl_foot": 1, "fr_foot": 0, "rl_foot": 3, "rr_foot": 2}

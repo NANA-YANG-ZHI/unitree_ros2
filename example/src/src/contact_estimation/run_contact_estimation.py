@@ -1,14 +1,18 @@
 """
 Run the sensorless generalized-momentum contact estimator (contact_detection.py)
-over a recorded Go2 rosbag2 folder and save the result as a single .npz file.
+over a Go2 lowstate/sportmode npz pair (produced by
+example/data/bag_topic_to_npz.py from a recorded rosbag2 folder) and save the
+result as a single .npz file.
 
-Usage (inside an environment with pinocchio + rosbag2_py/rclpy, e.g. the
-osrf/ros:foxy-desktop Docker container from docker/ with `pip3 install pin`):
+Usage (inside an environment with pinocchio, e.g. the osrf/ros:foxy-desktop
+Docker container from docker/ with `pip3 install pin` -- no rosbag2_py/rclpy
+needed, this script only reads .npz):
 
     python3 run_contact_estimation.py \
-        /path/to/example/data/2026_07_07/usable_data/excitation_bag_v4
+        /path/to/example/data/npz_data/excitation_bag_v4_lowstate.npz \
+        /path/to/example/data/npz_data/excitation_bag_v4_sportmodestate.npz
 
-Writes <bag_path>_contact_estimate.npz to plot/all_bags/ by default
+Writes <bag_name>_contact_estimate.npz to plot/all_bags/ by default
 (override with --out). Load it back with:
 
     data = np.load("excitation_bag_v4_contact_estimate.npz")
@@ -16,13 +20,12 @@ Writes <bag_path>_contact_estimate.npz to plot/all_bags/ by default
 """
 
 import argparse
-import os
 from pathlib import Path
 
 import numpy as np
 
 from go2_model import DEFAULT_MJCF_PATH, DEFAULT_URDF_PATH, load_go2_model, make_go2_contact_detector
-from bag_reader import read_lowstate_bag
+from npz_reader import read_lowstate_npz
 
 # Matches ContactDetector.foot_names order (contact_detection.py) and the
 # z-axis columns of its 12-dim est_f/est_f_filtered vectors (indices 2,5,8,11).
@@ -33,10 +36,10 @@ FOOT_Z_INDEX = [2, 5, 8, 11]
 DEFAULT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "all_bags"
 
 
-def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None,
+def run(lowstate_npz, sportmode_npz, out_path=None, bandwidth=30, alg="mixing", resample_freq=None,
         urdf_path=DEFAULT_URDF_PATH, mjcf_path=None):
     model, data = load_go2_model(mjcf_path=mjcf_path, urdf_path=None if mjcf_path is not None else urdf_path)
-    samples = read_lowstate_bag(bag_path, model, resample_freq=resample_freq)
+    samples = read_lowstate_npz(lowstate_npz, model, sportmode_npz_path=sportmode_npz, resample_freq=resample_freq)
 
     # ContactDetector integrates its observer with a fixed dt = 1/freq --
     # this must match the bag's actual (resampled) sample spacing, not the
@@ -58,7 +61,7 @@ def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None,
         contact_history[i] = [contact_states[name] for name in FOOT_NAMES]
 
     if out_path is None:
-        bag_name = os.path.basename(os.path.normpath(bag_path))
+        bag_name = Path(lowstate_npz).name.replace("_lowstate.npz", "")
         DEFAULT_OUT_DIR.mkdir(parents=True, exist_ok=True)
         out_path = str(DEFAULT_OUT_DIR / f"{bag_name}_contact_estimate.npz")
 
@@ -90,8 +93,9 @@ def run(bag_path, out_path=None, bandwidth=30, alg="mixing", resample_freq=None,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("bag_path", help="Path to a rosbag2 folder, e.g. .../usable_data/excitation_bag_v4")
-    parser.add_argument("--out", default=None, help="Output .npz path (default: <bag_path>_contact_estimate.npz next to the bag)")
+    parser.add_argument("lowstate_npz", help="Path to a <bag>_lowstate.npz produced by bag_topic_to_npz.py")
+    parser.add_argument("sportmode_npz", help="Path to a <bag>_sportmodestate.npz produced by bag_topic_to_npz.py")
+    parser.add_argument("--out", default=None, help="Output .npz path (default: plot/all_bags/<bag_name>_contact_estimate.npz)")
     parser.add_argument("--bandwidth", type=float, default=30, help="Observer bandwidth in rad/s (default: 30)")
     parser.add_argument("--alg", default="mixing", choices=["hg", "sliding", "mixing"], help="Observer injection law (default: mixing)")
     parser.add_argument("--resample-freq", type=float, default=None, help="Resample frequency in Hz (default: auto-derived from the bag's /lowstate rate)")
@@ -108,7 +112,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run(
-        args.bag_path,
+        args.lowstate_npz,
+        args.sportmode_npz,
         out_path=args.out,
         bandwidth=args.bandwidth,
         alg=args.alg,

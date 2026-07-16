@@ -1,17 +1,16 @@
 """
-Read a recorded rosbag2 (sqlite3) folder containing /lowstate
-(unitree_go/msg/LowState) and /lf/sportmodestate (unitree_go/msg/SportModeState)
-and produce time-aligned q/v/tau arrays in the exact layout
+Load /lowstate (unitree_go/msg/LowState) and /lf/sportmodestate or
+/sportmodestate (unitree_go/msg/SportModeState) data from the raw per-topic
+.npz dumps produced by example/data/bag_topic_to_npz.py, and produce
+time-aligned q/v/tau arrays in the exact layout
 contact_detection.ContactDetector.apply_contact_detection expects for a Go2
 Pinocchio model (see go2_model.load_go2_model).
 
-Bag-reading is intentionally decoupled from Pinocchio model-building: this
+npz-reading is intentionally decoupled from Pinocchio model-building: this
 module only needs the joint-name -> index map from go2_model.build_joint_index_maps,
 no kinematics/dynamics are computed here.
 """
 
-import glob
-import os
 from dataclasses import dataclass
 
 import numpy as np
@@ -27,15 +26,6 @@ UNITREE_MOTOR_INDEX = {
     "RR_hip_joint": 6, "RR_thigh_joint": 7, "RR_calf_joint": 8,
     "RL_hip_joint": 9, "RL_thigh_joint": 10, "RL_calf_joint": 11,
 }
-
-LOWSTATE_TOPIC = "/lowstate"
-# Bags record base velocity under one of two names depending on how the robot
-# was set up: "/lf/sportmodestate" is a decimated low-frequency relay (older
-# bags, e.g. excitation_bag_v4-v9); "/sportmodestate" is the native
-# high-frequency topic (e.g. excitation_bag_v95), running at ~/lowstate's own
-# rate. Prefer the low-frequency one when both are present since that's what
-# this pipeline was originally tuned against; fall back to the other.
-SPORTMODE_TOPIC_CANDIDATES = ("/lf/sportmodestate", "/sportmodestate")
 
 
 def _quat_xyzw_to_rotmat(quat_xyzw):
@@ -66,87 +56,50 @@ class Go2BagSamples:
     dt: float
 
 
-def _open_bag(bag_path):
-    import rosbag2_py
-    from rclpy.serialization import deserialize_message
-    from rosidl_runtime_py.utilities import get_message
+def _load_lowstate_npz(lowstate_npz_path):
+    low = np.load(lowstate_npz_path, allow_pickle=True)
+    t = low["t"]
+    quat_wxyz = low["imu_state.quaternion"]
+    gyro = low["imu_state.gyroscope"]
+    motor_q = np.stack([low[f"motor_state.{i}.q"] for i in range(12)], axis=1)
+    motor_dq = np.stack([low[f"motor_state.{i}.dq"] for i in range(12)], axis=1)
+    motor_tau = np.stack([low[f"motor_state.{i}.tau_est"] for i in range(12)], axis=1)
+    foot_force = low["foot_force"]
+    foot_force_est = low["foot_force_est"]
+    return t, quat_wxyz, gyro, motor_q, motor_dq, motor_tau, foot_force, foot_force_est
 
-    reader = rosbag2_py.SequentialReader()
-    storage_options = rosbag2_py.StorageOptions(uri=bag_path, storage_id="sqlite3")
-    converter_options = rosbag2_py.ConverterOptions("", "")
-    reader.open(storage_options, converter_options)
-    type_map = {t.name: t.type for t in reader.get_all_topics_and_types()}
-    return reader, type_map, deserialize_message, get_message
+
+def _load_sportmode_npz(sportmode_npz_path):
+    sport = np.load(sportmode_npz_path, allow_pickle=True)
+    return sport["t"], sport["velocity"]
 
 
-def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocity=True) -> Go2BagSamples:
-    reader, type_map, deserialize_message, get_message = _open_bag(bag_path)
+def read_lowstate_npz(lowstate_npz_path, model, sportmode_npz_path=None,
+                       resample_freq=None, use_sportmode_velocity=True) -> Go2BagSamples:
+    (lowstate_t, quat_wxyz, gyro, motor_q, motor_dq, motor_tau,
+     foot_force, foot_force_est) = _load_lowstate_npz(lowstate_npz_path)
 
-    if LOWSTATE_TOPIC not in type_map:
-        raise RuntimeError(f"'{LOWSTATE_TOPIC}' not found in bag '{bag_path}'. Available: {list(type_map.keys())}")
-
-    sportmode_topic = None
     if use_sportmode_velocity:
-        sportmode_topic = next((t for t in SPORTMODE_TOPIC_CANDIDATES if t in type_map), None)
-        if sportmode_topic is None:
-            raise RuntimeError(
-                f"None of {SPORTMODE_TOPIC_CANDIDATES} found in bag '{bag_path}' (needed for base linear "
-                f"velocity). Available: {list(type_map.keys())}. Pass use_sportmode_velocity=False if you "
-                "intend to supply base velocity some other way (not supported by this function)."
-            )
-        print(f"Using '{sportmode_topic}' for base velocity")
+        if sportmode_npz_path is None:
+            raise ValueError("sportmode_npz_path is required when use_sportmode_velocity=True")
+        sportmode_t, base_lin_vel = _load_sportmode_npz(sportmode_npz_path)
 
-    lowstate_t = []
-    quat_wxyz = []
-    gyro = []
-    motor_q = []
-    motor_dq = []
-    motor_tau = []
-    foot_force = []
-    foot_force_est = []
-
-    sportmode_t = []
-    base_lin_vel = []
-
-    while reader.has_next():
-        topic, data, ts_ns = reader.read_next()
-        t_s = ts_ns * 1e-9
-
-        if topic == LOWSTATE_TOPIC:
-            msg = deserialize_message(data, get_message(type_map[topic]))
-            lowstate_t.append(t_s)
-            quat_wxyz.append(np.array(msg.imu_state.quaternion, dtype=float))
-            gyro.append(np.array(msg.imu_state.gyroscope, dtype=float))
-            motor_q.append(np.array([msg.motor_state[i].q for i in range(12)], dtype=float))
-            motor_dq.append(np.array([msg.motor_state[i].dq for i in range(12)], dtype=float))
-            motor_tau.append(np.array([msg.motor_state[i].tau_est for i in range(12)], dtype=float))
-            foot_force.append(np.array(msg.foot_force, dtype=float))
-            foot_force_est.append(np.array(msg.foot_force_est, dtype=float))
-
-        elif use_sportmode_velocity and topic == sportmode_topic:
-            msg = deserialize_message(data, get_message(type_map[topic]))
-            sportmode_t.append(t_s)
-            base_lin_vel.append(np.array(msg.velocity, dtype=float))
-
-    if not lowstate_t:
-        raise RuntimeError(f"No '{LOWSTATE_TOPIC}' messages found in bag '{bag_path}'.")
-    if use_sportmode_velocity and not sportmode_t:
-        raise RuntimeError(f"No '{sportmode_topic}' messages found in bag '{bag_path}'.")
-
-    lowstate_t = np.array(lowstate_t)
     order_idx = np.argsort(lowstate_t)
     lowstate_t = lowstate_t[order_idx]
-    quat_wxyz = np.array(quat_wxyz)[order_idx]
-    gyro = np.array(gyro)[order_idx]
-    motor_q = np.array(motor_q)[order_idx]
-    motor_dq = np.array(motor_dq)[order_idx]
-    motor_tau = np.array(motor_tau)[order_idx]
-    foot_force = np.array(foot_force)[order_idx]
-    foot_force_est = np.array(foot_force_est)[order_idx]
+    quat_wxyz = quat_wxyz[order_idx]
+    gyro = gyro[order_idx]
+    motor_q = motor_q[order_idx]
+    motor_dq = motor_dq[order_idx]
+    motor_tau = motor_tau[order_idx]
+    foot_force = foot_force[order_idx]
+    foot_force_est = foot_force_est[order_idx]
 
-    t0 = lowstate_t[0]
-    lowstate_t = lowstate_t - t0
-
+    # bag_topic_to_npz.py zeroes each dump's `t` independently, to its own
+    # first sample -- so this treats the first /lowstate and first
+    # /lf/sportmodestate sample as simultaneous. Same approximation
+    # compute_gt_contact_signals.py already relies on; adjacent samples are
+    # only ~2ms apart so the error is negligible for a low-pass-filtered
+    # contact estimator.
     if resample_freq is None:
         median_dt = np.median(np.diff(lowstate_t))
         resample_freq = np.clip(round((1.0 / median_dt) / 50.0) * 50.0, 100, 1000)
@@ -174,10 +127,9 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
     foot_force_est_r = interp_cols(lowstate_t, foot_force_est)
 
     if use_sportmode_velocity:
-        sportmode_t = np.array(sportmode_t) - t0
         order_idx_s = np.argsort(sportmode_t)
         sportmode_t = sportmode_t[order_idx_s]
-        base_lin_vel = np.array(base_lin_vel)[order_idx_s]
+        base_lin_vel = base_lin_vel[order_idx_s]
         base_lin_vel_world_r = interp_cols(sportmode_t, base_lin_vel)
         # SportModeState.velocity is documented (see read_motion_state.cpp) as
         # being expressed in the Odometry (world) frame, but Pinocchio's
@@ -215,11 +167,4 @@ def read_lowstate_bag(bag_path, model, resample_freq=None, use_sportmode_velocit
         t=t_grid, q=q, v=v, tau=tau,
         foot_force=foot_force_r, foot_force_est=foot_force_est_r,
         joint_order=joint_order, dt=dt,
-    )
-
-
-def list_available_bags(root_dir) -> list:
-    """Convenience: glob `root_dir` for subfolders containing a metadata.yaml."""
-    return sorted(
-        os.path.dirname(p) for p in glob.glob(os.path.join(root_dir, "**", "metadata.yaml"), recursive=True)
     )
