@@ -3,7 +3,7 @@
 **/__pycache__/
 **/log/
 **/install/
-example/data/
+example/data/2026_07_07
 plot/all_bags/**.npz
 plot/all_bags/**.png
 plot/all_bags/**.txt
