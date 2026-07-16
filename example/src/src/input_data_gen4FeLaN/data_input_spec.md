@@ -28,8 +28,8 @@
 
 | Field | Value |
 |---|---|
-| Sample Frequency | > 100 Hz |
-| Dataset Duration | 10 minutes |
+| Sample Frequency | 500 Hz |
+| Dataset Duration | around 30s per segmentation |
 
 ## Extra fields
 
