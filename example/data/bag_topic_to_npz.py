@@ -1,18 +1,30 @@
 """
 Generic rosbag2 (sqlite3) -> .npz dumper: pick a single topic by name and
 dump every field of every message on it to a flat dict of numpy arrays.
-No message-type-specific knowledge required (unlike bag_reader.py /
-save_sportmode_data.py, which know about LowState/SportModeState fields).
+No message-type-specific knowledge required (unlike npz_reader.py, which
+knows about LowState/SportModeState fields).
 
-Needs rosbag2_py/rclpy/rosidl_runtime_py -- run inside the Docker/WSL2
+A rosbag2 recording folder is usually split into multiple storage segments
+(e.g. excitation_bag_v4_0.db3, excitation_bag_v4_1.db3, ... -- listed in
+the bag's metadata.yaml, one entry per time rosbag2's max bagfile size was
+hit during recording). This script treats each segment as its own
+independent dataset: it opens segments one at a time (not the whole bag
+folder as one continuous stream), so each output .npz's `t` is zeroed to
+that segment's own first message, and segment boundaries become hard cuts
+rather than being stitched back together.
+
+Needs rosbag2_py/rclpy/rosidl_runtime_py/PyYAML -- run inside the Docker/WSL2
 ROS2 environment. Loading the resulting .npz back only needs numpy.
 
 Usage:
-    python bag_topic_to_npz.py <bag_path> <topic_name> [--out out.npz]
+    python bag_topic_to_npz.py <bag_path> <topic_name> [--out-dir out_dir]
 
 Example:
     python bag_topic_to_npz.py ./excitation_bag_v4 /lowstate
-    python bag_topic_to_npz.py ./excitation_bag_v4 /lf/sportmodestate --out sportmode.npz
+        -> npz_data/excitation_bag_v4_0_lowstate.npz
+           npz_data/excitation_bag_v4_1_lowstate.npz
+           npz_data/excitation_bag_v4_2_lowstate.npz
+    python bag_topic_to_npz.py ./excitation_bag_v4 /lf/sportmodestate --out-dir ./out
 """
 
 import argparse
@@ -20,6 +32,7 @@ import re
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 # example/data/bag_topic_to_npz.py -> example/data/npz_data
 DEFAULT_OUT_DIR = Path(__file__).resolve().parent / "npz_data"
@@ -39,20 +52,36 @@ def _flatten(prefix, value, out):
         out[prefix] = value
 
 
-def read_topic_to_npz(bag_path, topic_name, out_path=None):
+def list_segments(bag_path):
+    """Return the ordered list of segment storage file paths for a rosbag2
+    recording folder, per its metadata.yaml `relative_file_paths`. If
+    `bag_path` doesn't contain a metadata.yaml (e.g. it's already a single
+    .db3 file), it's treated as its own single segment."""
+    bag_path = Path(bag_path)
+    metadata_path = bag_path / "metadata.yaml"
+    if not metadata_path.exists():
+        return [bag_path]
+
+    with open(metadata_path) as f:
+        metadata = yaml.safe_load(f)
+    relative_paths = metadata["rosbag2_bagfile_information"]["relative_file_paths"]
+    return [bag_path / p for p in relative_paths]
+
+
+def read_topic_to_npz(segment_path, topic_name, out_path):
     import rosbag2_py
     from rclpy.serialization import deserialize_message
     from rosidl_runtime_py.convert import message_to_ordereddict
     from rosidl_runtime_py.utilities import get_message
 
     reader = rosbag2_py.SequentialReader()
-    storage_options = rosbag2_py.StorageOptions(uri=str(bag_path), storage_id="sqlite3")
+    storage_options = rosbag2_py.StorageOptions(uri=str(segment_path), storage_id="sqlite3")
     converter_options = rosbag2_py.ConverterOptions("", "")
     reader.open(storage_options, converter_options)
     type_map = {t.name: t.type for t in reader.get_all_topics_and_types()}
 
     if topic_name not in type_map:
-        raise RuntimeError(f"Topic '{topic_name}' not found in bag '{bag_path}'. Available: {list(type_map.keys())}")
+        raise RuntimeError(f"Topic '{topic_name}' not found in segment '{segment_path}'. Available: {list(type_map.keys())}")
 
     msg_type = get_message(type_map[topic_name])
     t = []
@@ -70,7 +99,7 @@ def read_topic_to_npz(bag_path, topic_name, out_path=None):
             fields.setdefault(k, []).append(v)
 
     if not t:
-        raise RuntimeError(f"No messages found on topic '{topic_name}' in bag '{bag_path}'.")
+        raise RuntimeError(f"No messages found on topic '{topic_name}' in segment '{segment_path}'.")
 
     t = np.array(t)
     order_idx = np.argsort(t)
@@ -80,23 +109,33 @@ def read_topic_to_npz(bag_path, topic_name, out_path=None):
     for k, v in fields.items():
         arrays[k] = np.array(v)[order_idx]
 
-    if out_path is None:
-        safe_topic = re.sub(r"[^A-Za-z0-9_]+", "_", topic_name).strip("_")
-        bag_path = Path(bag_path)
-        DEFAULT_OUT_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = DEFAULT_OUT_DIR / f"{bag_path.name}_{safe_topic}.npz"
-
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(out_path, **arrays)
-    print(f"Saved {len(t)} samples ({t[-1]:.1f}s) from '{topic_name}' to {out_path}")
+    print(f"Saved {len(t)} samples ({t[-1]:.1f}s) from '{topic_name}' ({segment_path.name}) to {out_path}")
     print(f"  Fields: {sorted(fields.keys())}")
     return out_path
+
+
+def bag_topic_to_npz(bag_path, topic_name, out_dir=None):
+    """Dump `topic_name` from every segment of the rosbag2 recording at
+    `bag_path` to one .npz per segment, named <segment_stem>_<safe_topic>.npz
+    in `out_dir` (default: npz_data/ next to this script)."""
+    out_dir = Path(out_dir) if out_dir is not None else DEFAULT_OUT_DIR
+    safe_topic = re.sub(r"[^A-Za-z0-9_]+", "_", topic_name).strip("_")
+
+    out_paths = []
+    for segment_path in list_segments(bag_path):
+        out_path = out_dir / f"{segment_path.stem}_{safe_topic}.npz"
+        out_paths.append(read_topic_to_npz(segment_path, topic_name, out_path))
+    return out_paths
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("bag_path", help="Path to a rosbag2 folder, e.g. .../usable_data/excitation_bag_v4")
     parser.add_argument("topic_name", help="Topic to dump, e.g. /lowstate or /lf/sportmodestate")
-    parser.add_argument("--out", default=None, help="Output .npz path (default: plot/all_bags/<bag_name>_<topic>.npz)")
+    parser.add_argument("--out-dir", default=None, help="Output directory (default: example/data/npz_data)")
     args = parser.parse_args()
 
-    read_topic_to_npz(args.bag_path, args.topic_name, args.out)
+    bag_topic_to_npz(args.bag_path, args.topic_name, args.out_dir)
