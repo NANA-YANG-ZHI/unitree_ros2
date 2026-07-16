@@ -41,6 +41,7 @@ Docker container from docker/ with `pip3 install pin`):
 """
 
 import argparse
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -70,6 +71,15 @@ SENSOR_THRESHOLD = 20.0
 
 # example/src/src/input_data_gen4FeLaN/generate_input_data.py -> felan_input_data (sibling folder)
 DEFAULT_FELAN_OUT_DIR = Path(__file__).resolve().parent / "felan_input_data"
+
+# bag names are "excitation_bag_v<run>_<split>" (see example/data/npz_data/) --
+# run_<id>.npz only wants the "<run>_<split>" identifier, e.g. "4_0", not the
+# full recording name.
+_BAG_PREFIX_RE = re.compile(r"^excitation_bag_v")
+
+
+def _run_id(bag_name):
+    return _BAG_PREFIX_RE.sub("", bag_name)
 # example/src/src/input_data_gen4FeLaN/generate_input_data.py -> repo root -> plot/contact_estimation/contact_estimation_result_npz
 DEFAULT_CONTACT_OUT_DIR = Path(__file__).resolve().parents[4] / "plot" / "contact_estimation" / "contact_estimation_result_npz"
 
@@ -259,7 +269,7 @@ def main():
 
     if args.out is None:
         DEFAULT_FELAN_OUT_DIR.mkdir(parents=True, exist_ok=True)
-        felan_out_path = str(DEFAULT_FELAN_OUT_DIR / f"run_{bag_name}.npz")
+        felan_out_path = str(DEFAULT_FELAN_OUT_DIR / f"run_{_run_id(bag_name)}.npz")
     else:
         felan_out_path = args.out
 
