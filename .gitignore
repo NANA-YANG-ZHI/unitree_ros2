@@ -4,6 +4,7 @@
 **/log/
 **/install/
 example/data/2026_07_07
+example/data/npz_data
 plot/all_bags/**.npz
 plot/all_bags/**.png
 plot/all_bags/**.txt
