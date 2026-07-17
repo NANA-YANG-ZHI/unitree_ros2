@@ -279,7 +279,7 @@ def main():
     else:
         contact_out_path = args.contact_out
 
-    # File 1: exactly the spec-defined data_input_spec.md layout (q/qd/qdd/tau_act).
+    # File 1: exactly the spec-defined data_input_spec.md layout (q/qd/qdd/tau_act/contact_state).
     np.savez(
         felan_out_path,
         t=samples.t,
@@ -287,6 +287,7 @@ def main():
         qd=samples.v,
         qdd=samples.qdd,
         tau_act=samples.tau,
+        contact_state=contact_states,                   # (N,4) bool, fl/fr/rl/rr order (see FOOT_NAMES)
         joint_order=np.array(samples.joint_order),
         dt=samples.dt,
     )
