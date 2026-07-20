@@ -32,7 +32,7 @@ using std::placeholders::_1;
 
 static constexpr double DT           = 0.002;  // 500 Hz control loop
 static constexpr double SETTLE_TIME  = 1.0;    // s: hold neutral pose before exciting
-static constexpr double EXCITE_TIME  = 10.0;   // s: excitation duration (shared by all axes)
+static constexpr double EXCITE_TIME  = 70.0;   // s: excitation duration (shared by all axes)
 static constexpr double RESTORE_TIME = 2.0;    // s: ramp all axes back to neutral
 
 static inline float deg2rad(double d) { return static_cast<float>(d * M_PI / 180.0); }
@@ -40,21 +40,21 @@ static inline float deg2rad(double d) { return static_cast<float>(d * M_PI / 180
 // -- Height axis (see excitation_height.cpp for original single-axis version) --
 static constexpr int    ORDER_H       = 3;
 static const std::vector<double> PARAM_RANGE_H = {0.05};  // m; tune from the plot
-static constexpr double H_CENTER      = -0.075;            // m; offset the excitation oscillates around
+static constexpr double H_CENTER      = -0.05;            // m; offset the excitation oscillates around
 static constexpr unsigned SEED_H      = 42;
 static constexpr double H_MIN = -0.18;  // m, hardware spec
 static constexpr double H_MAX =  0.03;  // m, hardware spec
 
 // -- Roll/pitch axis (see excitation_pitch_roll.cpp) --
 static constexpr int    ORDER_PR         = 3;
-static constexpr double PARAM_RANGE_DEG  = 30.0;  // deg; see excitation_pitch_roll.cpp for scale note
-static constexpr double CLAMP_LIMIT_DEG  = 20.0;  // deg; hard safety clamp on commanded Euler roll/pitch
-static constexpr unsigned SEED_PR        = 42;
+static constexpr double PARAM_RANGE_DEG  = 15.0;  // deg; see excitation_pitch_roll.cpp for scale note
+static constexpr double CLAMP_LIMIT_DEG  = 15.0;  // deg; hard safety clamp on commanded Euler roll/pitch
+static constexpr unsigned SEED_PR        = 108;
 
 // -- Velocity axis (see excitation_velocity.cpp) --
 static constexpr int    ORDER_V       = 3;
-static const std::vector<double> PARAM_RANGE_V = {0.25, 0.15, 0.4};  // m/s, m/s, rad/s
-static constexpr unsigned SEED_V      = 42;
+static const std::vector<double> PARAM_RANGE_V = {0.12, 0.07, 0.2};  // m/s, m/s, rad/s
+static constexpr unsigned SEED_V      = 208;
 static constexpr double VX_LIMIT   = 0.4;   // m/s
 static constexpr double VY_LIMIT   = 0.25;  // m/s
 static constexpr double VYAW_LIMIT = 0.8;   // rad/s
@@ -234,14 +234,14 @@ private:
         req_pub_->publish(req_e);
         req_pub_->publish(req_m);
 
-        if (body_height_0_ >= 0.0) {
-            geometry_msgs::msg::PointStamped des_h_msg;
-            des_h_msg.header.stamp = now();
-            des_h_msg.point.x = vx;
-            des_h_msg.point.y = 0.0;
-            des_h_msg.point.z = body_height_0_ + des_h;
-            desired_h_pub_->publish(des_h_msg);
-        }
+        
+        geometry_msgs::msg::PointStamped des_h_msg;
+        des_h_msg.header.stamp = now();
+        des_h_msg.point.x = 0.0;
+        des_h_msg.point.y = 0.0;
+        des_h_msg.point.z = 0.33 + des_h;
+        desired_h_pub_->publish(des_h_msg);
+        
 
         geometry_msgs::msg::PointStamped des_pr_msg;
         des_pr_msg.header.stamp = now();
