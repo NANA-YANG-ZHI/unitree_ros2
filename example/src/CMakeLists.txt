@@ -89,7 +89,7 @@ install(TARGETS
         excitation_velocity
         excitation_pitch_roll
         excitation_combined
-        DESTINATION)
+        DESTINATION lib/${PROJECT_NAME})
 
 
 if(BUILD_TESTING)
