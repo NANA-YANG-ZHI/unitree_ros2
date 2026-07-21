@@ -38,17 +38,22 @@ for bag_dir in "$BAGS_DIR"/*/; do
         continue
     fi
 
-    # Discover every topic in this bag from its metadata.yaml (same parsing
-    # bag_topic_to_npz.py itself does), instead of hardcoding a topic list.
+    # Discover topics in this bag from its metadata.yaml (same parsing
+    # bag_topic_to_npz.py itself does), restricted to the lowstate/
+    # sportmodestate topics generate_input_data.py actually needs (e.g.
+    # /lowstate, /sportmodestate, /lf/sportmodestate).
     topics="$(python3 -c "
+import re
 import yaml
 with open('$metadata') as f:
     meta = yaml.safe_load(f)
 for t in meta['rosbag2_bagfile_information']['topics_with_message_count']:
-    print(t['topic_metadata']['name'])
+    name = t['topic_metadata']['name']
+    if re.search(r'(lowstate|sportmodestate)$', name, re.IGNORECASE):
+        print(name)
 ")"
     if [ -z "$topics" ]; then
-        echo "== $bag_name: SKIP (no topics found in metadata.yaml) =="
+        echo "== $bag_name: SKIP (no lowstate/sportmodestate topics found in metadata.yaml) =="
         continue
     fi
 
