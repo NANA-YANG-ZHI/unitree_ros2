@@ -1,8 +1,14 @@
 **/build/
-**/.vscode/
+# **/.vscode/
 **/__pycache__/
 **/log/
 **/install/
 2026_07_07
 2026_07_20
 2026_07_21
+example/data/2026_07_07
+example/data/npz_data
+plot/all_bags/**.npz
+plot/all_bags/**.png
+plot/all_bags/**.txt
+plot/contact_estimation/contact_estimation_result_npz/

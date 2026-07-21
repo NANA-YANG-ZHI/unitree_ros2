@@ -1,0 +1,44 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug generate_input_data.py (hybrid_ctrl)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "C:\\Users\\11452\\miniconda3\\envs\\hybrid_ctrl\\python.exe",
+            "program": "${workspaceFolder}/example/src/src/input_data_gen4FeLaN/generate_input_data.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/example/src/src/input_data_gen4FeLaN",
+            "justMyCode": false,
+            "env": {
+                // debugpy spawns python.exe directly, bypassing `conda activate`,
+                // so the env's native-DLL dirs (e.g. pinocchio's Library\bin) never
+                // land on PATH and the process dies silently on import. Prepend them
+                // here to match what `conda activate hybrid_ctrl` would set.
+                "PATH": "C:\\Users\\11452\\miniconda3\\envs\\hybrid_ctrl\\Library\\mingw-w64\\bin;C:\\Users\\11452\\miniconda3\\envs\\hybrid_ctrl\\Library\\usr\\bin;C:\\Users\\11452\\miniconda3\\envs\\hybrid_ctrl\\Library\\bin;C:\\Users\\11452\\miniconda3\\envs\\hybrid_ctrl\\Scripts;C:\\Users\\11452\\miniconda3\\envs\\hybrid_ctrl;${env:PATH}"
+            },
+            "args": [
+                "${workspaceFolder}/example/data/npz_data/excitation_bag_v4_0_lowstate.npz",
+                "${workspaceFolder}/example/data/npz_data/excitation_bag_v4_0_lf_sportmodestate.npz"
+            ]
+        },
+        {
+            "name": "Debug run_contact_estimation.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/example/src/src/contact_estimation/run_contact_estimation.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/example/src/src/contact_estimation",
+            "envFile": "${workspaceFolder}/.vscode/ros2.env",
+            "preLaunchTask": "Generate ROS2 env for debugging",
+            "justMyCode": false,
+            "args": [
+                "/workspace/example/data/2026_07_07/usable_data/excitation_bag_v4"
+                // optional flags, e.g.:
+                // "--bandwidth", "30",
+                // "--alg", "mixing",
+                // "--out", "/workspace/plot/contact_estimation/debug_run.npz"
+            ]
+        }
+    ]
+}
