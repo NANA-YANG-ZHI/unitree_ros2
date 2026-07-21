@@ -64,7 +64,7 @@ def rmse(a, b):
 
 def check_velocity_frame(npz_path):
     data = np.load(npz_path)
-    t = data["t"]
+    t = data["t"] - data["t"][0]  # bag_topic_to_npz.py saves absolute epoch time; zero locally for readability
     position = data["position"]
     velocity = data["velocity"]
     quat_wxyz = data["imu_state.quaternion"]

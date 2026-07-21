@@ -9,9 +9,17 @@ A rosbag2 recording folder is usually split into multiple storage segments
 the bag's metadata.yaml, one entry per time rosbag2's max bagfile size was
 hit during recording). This script treats each segment as its own
 independent dataset: it opens segments one at a time (not the whole bag
-folder as one continuous stream), so each output .npz's `t` is zeroed to
-that segment's own first message, and segment boundaries become hard cuts
+folder as one continuous stream), so segment boundaries become hard cuts
 rather than being stitched back together.
+
+`t` is saved as the raw absolute epoch time (seconds) of each message, NOT
+zeroed to the dump's own first sample. This is deliberate: a single call
+only ever sees one topic, so it has no way to know the real time offset
+between e.g. /lowstate and /sportmodestate. Any zeroing/alignment across
+multiple topics from the same segment must happen downstream, where both
+streams are actually available together (see contact_estimation/npz_reader.py
+and input_data_gen4FeLaN/generate_input_data.py, which align on the true
+overlap of the two streams' absolute time ranges).
 
 Needs rosbag2_py/rclpy/rosidl_runtime_py/PyYAML -- run inside the Docker/WSL2
 ROS2 environment. Loading the resulting .npz back only needs numpy.
@@ -103,7 +111,7 @@ def read_topic_to_npz(segment_path, topic_name, out_path):
 
     t = np.array(t)
     order_idx = np.argsort(t)
-    t = t[order_idx] - t[order_idx][0]
+    t = t[order_idx]  # absolute epoch seconds -- see module docstring
 
     arrays = {"t": t}
     for k, v in fields.items():

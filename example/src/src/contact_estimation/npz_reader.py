@@ -46,7 +46,7 @@ def _quat_xyzw_to_rotmat(quat_xyzw):
 
 @dataclass
 class Go2BagSamples:
-    t: np.ndarray              # (N,) seconds, relative to first /lowstate sample
+    t: np.ndarray              # (N,) seconds, relative to the start of the lowstate/sportmode time overlap
     q: np.ndarray              # (N, 19) Pinocchio configuration
     v: np.ndarray              # (N, 18) Pinocchio generalized velocity
     tau: np.ndarray            # (N, 12) actuated-joint torques, order == joint_order == v[:, 6:18]
@@ -94,22 +94,33 @@ def read_lowstate_npz(lowstate_npz_path, model, sportmode_npz_path=None,
     foot_force = foot_force[order_idx]
     foot_force_est = foot_force_est[order_idx]
 
-    # bag_topic_to_npz.py zeroes each dump's `t` independently, to its own
-    # first sample -- so this treats the first /lowstate and first
-    # /lf/sportmodestate sample as simultaneous. Same approximation
-    # compute_gt_contact_signals.py already relies on; adjacent samples are
-    # only ~2ms apart so the error is negligible for a low-pass-filtered
-    # contact estimator.
     if resample_freq is None:
         median_dt = np.median(np.diff(lowstate_t))
         resample_freq = np.clip(round((1.0 / median_dt) / 50.0) * 50.0, 100, 1000)
     dt = 1.0 / resample_freq
-    t_grid = np.arange(0.0, lowstate_t[-1], dt)
+
+    # bag_topic_to_npz.py saves `t` as absolute epoch time, so /lowstate and
+    # /lf/sportmodestate are directly comparable. Align on the true overlap
+    # of the two streams' time ranges (no offset assumed/added) rather than
+    # treating each stream's own first sample as simultaneous.
+    if use_sportmode_velocity:
+        overlap_start = max(lowstate_t[0], sportmode_t[0])
+        overlap_end = min(lowstate_t[-1], sportmode_t[-1])
+        if overlap_start >= overlap_end:
+            raise ValueError(
+                f"No time overlap between lowstate ([{lowstate_t[0]:.3f}, {lowstate_t[-1]:.3f}]) "
+                f"and sportmode ([{sportmode_t[0]:.3f}, {sportmode_t[-1]:.3f}])."
+            )
+    else:
+        overlap_start, overlap_end = lowstate_t[0], lowstate_t[-1]
+
+    t_grid_abs = np.arange(overlap_start, overlap_end, dt)
+    t_grid = t_grid_abs - overlap_start
     N = len(t_grid)
 
     def interp_cols(t_src, values):
         values = np.asarray(values)
-        return np.stack([np.interp(t_grid, t_src, values[:, c]) for c in range(values.shape[1])], axis=1)
+        return np.stack([np.interp(t_grid_abs, t_src, values[:, c]) for c in range(values.shape[1])], axis=1)
 
     quat_wxyz_r = interp_cols(lowstate_t, quat_wxyz)
     # Linear-interpolating quaternion components independently and
