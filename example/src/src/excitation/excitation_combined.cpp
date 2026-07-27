@@ -31,29 +31,31 @@
 using std::placeholders::_1;
 
 static constexpr double DT           = 0.002;  // 500 Hz control loop
-static constexpr double SETTLE_TIME  = 1.0;    // s: hold neutral pose before exciting
-static constexpr double EXCITE_TIME  = 70.0;   // s: excitation duration (shared by all axes)
+static constexpr double SETTLE_TIME  = 2.0;    // s: hold neutral pose before exciting
+static constexpr double EXCITE_TIME  = 35.0;   // s: excitation duration (shared by all axes)
 static constexpr double RESTORE_TIME = 2.0;    // s: ramp all axes back to neutral
 
 static inline float deg2rad(double d) { return static_cast<float>(d * M_PI / 180.0); }
 
 // -- Height axis (see excitation_height.cpp for original single-axis version) --
 static constexpr int    ORDER_H       = 3;
-static const std::vector<double> PARAM_RANGE_H = {0.05};  // m; tune from the plot
-static constexpr double H_CENTER      = -0.05;            // m; offset the excitation oscillates around
+static const std::vector<double> PARAM_RANGE_H = {0.2};  // m; tune from the plot
+static constexpr double H_CENTER      = -0.075;            // m; offset the excitation oscillates around
 static constexpr unsigned SEED_H      = 42;
-static constexpr double H_MIN = -0.18;  // m, hardware spec
-static constexpr double H_MAX =  0.03;  // m, hardware spec
+static constexpr double H_MIN = -0.14;  // m, hardware spec
+static constexpr double H_MAX =  0.01;  // m, hardware spec
 
 // -- Roll/pitch axis (see excitation_pitch_roll.cpp) --
 static constexpr int    ORDER_PR         = 3;
-static constexpr double PARAM_RANGE_DEG  = 15.0;  // deg; see excitation_pitch_roll.cpp for scale note
-static constexpr double CLAMP_LIMIT_DEG  = 15.0;  // deg; hard safety clamp on commanded Euler roll/pitch
+static constexpr double PARAM_RANGE_DEG_PITCH  = 20.0;  // deg; see excitation_pitch_roll.cpp for scale note
+static constexpr double PARAM_RANGE_DEG_ROLL = 15.0;
+static constexpr double CLAMP_LIMIT_DEG_PITCH  = 20.0;  // deg; hard safety clamp on commanded Euler roll/pitch
+static constexpr double CLAMP_LIMIT_DEG_ROLL = 15.0;
 static constexpr unsigned SEED_PR        = 108;
 
 // -- Velocity axis (see excitation_velocity.cpp) --
 static constexpr int    ORDER_V       = 3;
-static const std::vector<double> PARAM_RANGE_V = {0.12, 0.07, 0.2};  // m/s, m/s, rad/s
+static const std::vector<double> PARAM_RANGE_V = {0.13, 0.09, 0.2};  // m/s, m/s, rad/s
 static constexpr unsigned SEED_V      = 208;
 static constexpr double VX_LIMIT   = 0.4;   // m/s
 static constexpr double VY_LIMIT   = 0.25;  // m/s
@@ -81,7 +83,7 @@ public:
           h_center_(declare_and_get_double(this, "height_h_center", H_CENTER)),
           order_pr_(declare_and_get_int(this, "pr_order", ORDER_PR)),
           param_range_deg_pr_(declare_and_get_double_array(this, "pr_param_range_deg",
-                                                            {PARAM_RANGE_DEG, PARAM_RANGE_DEG})),
+                                                            {PARAM_RANGE_DEG_PITCH, PARAM_RANGE_DEG_ROLL})),
           seed_pr_(declare_and_get_uint(this, "pr_seed", SEED_PR)),
           order_v_(declare_and_get_int(this, "vel_order", ORDER_V)),
           param_range_v_(declare_and_get_double_array(this, "vel_param_range", PARAM_RANGE_V)),
@@ -148,7 +150,8 @@ private:
         jpr["excite_time"] = excite_time_;
         jpr["restore_time"] = RESTORE_TIME;
         jpr["param_range_deg"] = param_range_deg_pr_;
-        jpr["clamp_limit_deg"] = CLAMP_LIMIT_DEG;
+        jpr["clamp_limit_deg_roll"] = CLAMP_LIMIT_DEG_ROLL;
+        jpr["clamp_limit_deg_pitch"] = CLAMP_LIMIT_DEG_PITCH;
         std::ofstream(PARAMS_FILE_PR) << jpr.dump(2);
         RCLCPP_INFO(get_logger(), "Wrote excitation params to %s", PARAMS_FILE_PR);
 
@@ -220,8 +223,8 @@ private:
             return;
         }
 
-        roll  = clamp(roll,  deg2rad(CLAMP_LIMIT_DEG));
-        pitch = clamp(pitch, deg2rad(CLAMP_LIMIT_DEG));
+        roll  = clamp(roll,  deg2rad(CLAMP_LIMIT_DEG_ROLL));
+        pitch = clamp(pitch, deg2rad(CLAMP_LIMIT_DEG_PITCH));
         vx    = clamp(vx,   VX_LIMIT);
         vy    = clamp(vy,   VY_LIMIT);
         vyaw  = clamp(vyaw, VYAW_LIMIT);
