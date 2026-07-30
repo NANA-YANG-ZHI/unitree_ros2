@@ -52,8 +52,8 @@ def eval_fourier(t):
     t = np.atleast_1d(t)
     q = np.tile(Q0[None, :], (t.shape[0], 1)).astype(float)
     for k in range(1, ORDER + 1):
-        phase = 2.0 * omega_f * k * t[:, None] + PHI0[None, :]
-        denom = 2.0 * omega_f * k
+        phase = omega_f * k * t[:, None] + PHI0[None, :]
+        denom = omega_f * k
         q = q + (np.sin(phase) * A[k - 1, :][None, :] / denom -
                  np.cos(phase) * B[k - 1, :][None, :] / denom)
     return q
@@ -81,12 +81,14 @@ vel_clamped = np.clip(vel, -limits, limits)
 
 # --- Time-series plots ---
 labels = ["vx (m/s)", "vy (m/s)", "vyaw (rad/s)"]
+accel_labels = ["ax (m/s^2)", "ay (m/s^2)", "ayaw (rad/s^2)"]
 colors = ["steelblue", "darkorange", "seagreen"]
 
-fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+fig, axes = plt.subplots(2, 3, figsize=(15, 8))
 fig.suptitle("Desired Trajectory — excitation_velocity", fontsize=13)
 
-for i, ax in enumerate(axes):
+for i in range(3):
+    ax = axes[0, i]
     ax.plot(t, vel[:, i], color=colors[i], label="unclamped")
     ax.plot(t, vel_clamped[:, i], color="tomato", linestyle="--", linewidth=0.9, label="sent to robot")
     ax.axhline(limits[i], color="black", linestyle=":", linewidth=0.8, label=f"limit ±{limits[i]:.2f}")
@@ -94,6 +96,18 @@ for i, ax in enumerate(axes):
     ax.set_xlabel("Time (s)")
     ax.set_ylabel(labels[i])
     ax.set_title(labels[i])
+    ax.legend(fontsize=7, loc="upper right")
+    ax.grid(True, alpha=0.4)
+
+    acc = np.gradient(vel[:, i], DT)
+    acc_clamped = np.gradient(vel_clamped[:, i], DT)
+
+    ax = axes[1, i]
+    ax.plot(t, acc, color=colors[i], label="unclamped")
+    ax.plot(t, acc_clamped, color="tomato", linestyle="--", linewidth=0.9, label="sent to robot")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel(accel_labels[i])
+    ax.set_title(accel_labels[i])
     ax.legend(fontsize=7, loc="upper right")
     ax.grid(True, alpha=0.4)
 
@@ -124,6 +138,7 @@ ax3d.plot(x[excite_mask],  y[excite_mask],  yaw_deg[excite_mask],
           color="steelblue",  linewidth=2.0, label="excite (fourier velocity)")
 ax3d.plot(x[restore_mask], y[restore_mask], yaw_deg[restore_mask],
           color="darkorange", linewidth=1.5, label="restore")
+          
 
 ax3d.set_xlabel("X (m)")
 ax3d.set_ylabel("Y (m)")

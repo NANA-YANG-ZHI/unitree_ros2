@@ -45,8 +45,8 @@ def eval_fourier(t):
     t = np.atleast_1d(t)
     q = np.tile(Q0[None, :], (t.shape[0], 1)).astype(float)
     for k in range(1, ORDER + 1):
-        phase = 2.0 * omega_f * k * t[:, None] + PHI0[None, :]
-        denom = 2.0 * omega_f * k
+        phase = omega_f * k * t[:, None] + PHI0[None, :]
+        denom = omega_f * k
         q = q + (np.sin(phase) * A[k - 1, :][None, :] / denom -
                  np.cos(phase) * B[k - 1, :][None, :] / denom)
     return q
@@ -77,12 +77,14 @@ rp_clamped_deg = np.rad2deg(rp_clamped)
 
 # --- Time-series plots ---
 labels = ["Roll (deg)", "Pitch (deg)"]
+rate_labels = ["Roll Rate (deg/s)", "Pitch Rate (deg/s)"]
 colors = ["seagreen", "steelblue"]
 
-fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+fig, axes = plt.subplots(2, 2, figsize=(11, 8))
 fig.suptitle("Desired Trajectory — excitation_pitch_roll", fontsize=13)
 
-for i, ax in enumerate(axes):
+for i in range(2):
+    ax = axes[0, i]
     ax.plot(t, rp_deg[:, i], color=colors[i], label="unclamped")
     ax.plot(t, rp_clamped_deg[:, i], color="tomato", linestyle="--", linewidth=0.9, label="sent to robot")
     ax.axhline(CLAMP_LIMIT_DEG, color="black", linestyle=":", linewidth=0.8, label=f"clamp ±{CLAMP_LIMIT_DEG:.1f} deg")
@@ -90,6 +92,18 @@ for i, ax in enumerate(axes):
     ax.set_xlabel("Time (s)")
     ax.set_ylabel(labels[i])
     ax.set_title(labels[i])
+    ax.legend(fontsize=7, loc="upper right")
+    ax.grid(True, alpha=0.4)
+
+    rate_deg = np.gradient(rp_deg[:, i], DT)
+    rate_clamped_deg = np.gradient(rp_clamped_deg[:, i], DT)
+
+    ax = axes[1, i]
+    ax.plot(t, rate_deg, color=colors[i], label="unclamped")
+    ax.plot(t, rate_clamped_deg, color="tomato", linestyle="--", linewidth=0.9, label="sent to robot")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel(rate_labels[i])
+    ax.set_title(rate_labels[i])
     ax.legend(fontsize=7, loc="upper right")
     ax.grid(True, alpha=0.4)
 

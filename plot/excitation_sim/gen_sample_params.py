@@ -44,7 +44,7 @@ def generate_random_param(order, njoints, param_range, seed):
         B[1, j] = -np.dot(cB[0][2:], B[2:, j])
         B[0, j] = -np.dot(cB[1][1:], B[1:, j])
 
-    phi0 = rng.uniform(0, 2 * np.pi, njoints)
+    phi0 = rng.uniform(-np.pi/3, np.pi/3, njoints)
     return A, B, phi0
 
 
@@ -69,26 +69,26 @@ def write_params(path, order, njoints, param_range, duration, q0, seed, extra):
 if __name__ == "__main__":
     # Matches excitation_height.cpp
     write_params(
-        "excitation_height_params.json", order=3, njoints=1, param_range=[0.1],
-        duration=10.0, q0=[-0.075], seed=42,
-        extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 10.0, "restore_time": 2.0,
+        "excitation_height_params.json", order=3, njoints=1, param_range=[0.05],
+        duration=35.0, q0=[-0.075], seed=42,
+        extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 35.0, "restore_time": 2.0,
                "vx": 0.1, "h_min": -0.18, "h_max": 0.03},
     )
 
     # Matches excitation_velocity.cpp
     write_params(
-        "excitation_velocity_params.json", order=3, njoints=3, param_range=[0.4, 0.25, 0.8],
-        duration=10.0, q0=[0.0, 0.0, 0.0], seed=42,
-        extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 10.0, "restore_time": 2.0,
+        "excitation_velocity_params.json", order=3, njoints=3, param_range=[0.12, 0.07, 0.2],
+        duration=70.0, q0=[0.0, 0.0, 0.0], seed=42,
+        extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 70.0, "restore_time": 2.0,
                "vx_limit": 0.4, "vy_limit": 0.25, "vyaw_limit": 0.8},
     )
 
     # Matches excitation_pitch_roll.cpp
-    param_range_rad = np.deg2rad(40.0)
+    param_range_rad = np.deg2rad(25.0)
     write_params(
         "excitation_pitch_roll_params.json", order=3, njoints=2,
         param_range=[param_range_rad, param_range_rad],
-        duration=10.0, q0=[0.0, 0.0], seed=42,
-        extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 10.0, "restore_time": 1.0,
-               "param_range_deg": 30.0, "clamp_limit_deg": 20.0},
+        duration=70.0, q0=[0.0, 0.0], seed=42,
+        extra={"dt": 0.002, "settle_time": 1.0, "excite_time": 70.0, "restore_time": 1.0,
+               "param_range_deg": 25.0, "clamp_limit_deg": 30.0},
     )

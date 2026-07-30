@@ -49,8 +49,8 @@ def eval_fourier(t):
     t = np.atleast_1d(t)
     q = np.tile(Q0[None, :], (t.shape[0], 1)).astype(float)
     for k in range(1, ORDER + 1):
-        phase = 2.0 * omega_f * k * t[:, None] + PHI0[None, :]
-        denom = 2.0 * omega_f * k
+        phase = omega_f * k * t[:, None] + PHI0[None, :]
+        denom = omega_f * k
         q = q + (np.sin(phase) * A[k - 1, :][None, :] / denom -
                  np.cos(phase) * B[k - 1, :][None, :] / denom)
     return q
@@ -83,17 +83,17 @@ x[restore_mask] = VX * EXCITE_TIME
 z_clamped = np.clip(z, H_MIN, H_MAX)
 
 # --- Time-series plots ---
-fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+fig, axes = plt.subplots(2, 3, figsize=(15, 8))
 fig.suptitle("Desired Trajectory — excitation_height", fontsize=13)
 
-ax = axes[0]
+ax = axes[0, 0]
 ax.plot(t, x, color="steelblue")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("X (m)")
 ax.set_title("Forward Position")
 ax.grid(True, alpha=0.4)
 
-ax = axes[1]
+ax = axes[0, 1]
 ax.plot(t, y, color="darkorange")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Y (m)")
@@ -101,7 +101,7 @@ ax.set_title("Lateral Position")
 ax.set_ylim(-0.3, 0.3)
 ax.grid(True, alpha=0.4)
 
-ax = axes[2]
+ax = axes[0, 2]
 ax.plot(t, z, color="seagreen", label="height offset (unclamped)")
 ax.plot(t, z_clamped, color="tomato", linestyle="--", linewidth=0.9, label="height offset (sent to robot)")
 ax.axhline(H_MAX, color="black", linestyle=":", linewidth=0.8, label=f"spec max {H_MAX} m")
@@ -109,6 +109,37 @@ ax.axhline(H_MIN, color="black", linestyle=":", linewidth=0.8, label=f"spec min 
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Z offset (m)")
 ax.set_title("Body Height Offset (relative)")
+ax.legend(fontsize=7, loc="upper right")
+ax.grid(True, alpha=0.4)
+
+# --- Time derivatives ---
+vx = np.gradient(x, DT)
+vy = np.gradient(y, DT)
+vz = np.gradient(z, DT)
+vz_clamped = np.gradient(z_clamped, DT)
+
+ax = axes[1, 0]
+ax.plot(t, vx, color="steelblue")
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Vx (m/s)")
+ax.set_title("Forward Velocity")
+ax.grid(True, alpha=0.4)
+
+ax = axes[1, 1]
+ax.plot(t, vy, color="darkorange")
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Vy (m/s)")
+ax.set_title("Lateral Velocity")
+ax.grid(True, alpha=0.4)
+
+ax = axes[1, 2]
+ax.plot(t, vz, color="seagreen", label="height rate (unclamped)")
+ax.plot(t, vz_clamped, color="tomato", linestyle="--", linewidth=0.9, label="height rate (sent to robot)")
+ax.set_xlabel("Time (s)")
+ax.set_xlim([10, 90])
+ax.set_ylim([-0.1, 0.1])
+ax.set_ylabel("Z rate (m/s)")
+ax.set_title("Body Height Rate")
 ax.legend(fontsize=7, loc="upper right")
 ax.grid(True, alpha=0.4)
 
