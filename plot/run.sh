@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Start (or restart) the plot-tools container, mounting only this repo's
-# plot/ folder at /workspace (matching the existing convention -- paths
-# passed into this container are relative to plot/, e.g. plot/all_bags ->
-# all_bags). Forwards X11 so plt.show() (TkAgg backend) can open a window
-# on the host display; savefig-only scripts don't need this.
+# Start (or restart) the plot-tools container, mounting the whole unitree_ros2
+# repo at /workspace (matching unitree_ros2_dev's convention -- paths passed
+# into this container are the same as host paths relative to the repo root,
+# e.g. plot/all_bags -> plot/all_bags). Forwards X11 so plt.show() (TkAgg
+# backend) can open a window on the host display; savefig-only scripts don't
+# need this.
 #
 # If you're SSH'd into the remote machine, connect with `ssh -X` and make
 # sure `xauth` is installed there; run `xhost +local:docker` on the remote
@@ -25,7 +26,7 @@ else
         --network host \
         -e DISPLAY="${DISPLAY:-}" \
         -v /tmp/.X11-unix:/tmp/.X11-unix \
-        -v "$REPO_DIR/plot":/workspace \
+        -v "$REPO_DIR":/workspace \
         -w /workspace \
         "$IMAGE_NAME"
 fi

@@ -32,7 +32,7 @@ void FourierExcitation::generate_random_param(unsigned seed)
 
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> unit(-1.0, 1.0);
-    std::uniform_real_distribution<double> phase_dist(0.0, 2.0 * M_PI);
+    std::uniform_real_distribution<double> phase_dist(- M_PI / 3.0, M_PI / 3.0);
 
     A_.assign(order_, std::vector<double>(njoints_, 0.0));
     B_.assign(order_, std::vector<double>(njoints_, 0.0));
@@ -73,9 +73,9 @@ std::vector<double> FourierExcitation::eval(double t) const
     std::vector<double> q = q0_;
 
     for (int k = 1; k <= order_; ++k) {
-        const double denom = 2.0 * omega_f * k;
+        const double denom =  omega_f * k;
         for (int j = 0; j < njoints_; ++j) {
-            const double phase = 2.0 * omega_f * k * t + phi0_[j];
+            const double phase =  omega_f * k * t + phi0_[j];
             const double s = std::sin(phase);
             const double c = std::cos(phase);
             q[j] += s * A_[k - 1][j] / denom - c * B_[k - 1][j] / denom;
@@ -91,9 +91,9 @@ void FourierExcitation::eval(double t, std::vector<double> &q, std::vector<doubl
     qd.assign(njoints_, 0.0);
 
     for (int k = 1; k <= order_; ++k) {
-        const double denom = 2.0 * omega_f * k;
+        const double denom =  omega_f * k;
         for (int j = 0; j < njoints_; ++j) {
-            const double phase = 2.0 * omega_f * k * t + phi0_[j];
+            const double phase =  omega_f * k * t + phi0_[j];
             const double s = std::sin(phase);
             const double c = std::cos(phase);
             q[j]  += s * A_[k - 1][j] / denom - c * B_[k - 1][j] / denom;

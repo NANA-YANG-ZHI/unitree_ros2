@@ -126,7 +126,7 @@ Python). Prints a final `Done: N succeeded, M failed/skipped.` summary.
 ```bash
 ./plot/run.sh                                    # starts/attaches plot-tools-run
 docker exec -it plot-tools-run bash
-cd /workspace/contact_estimation/validation       # NOTE: no "plot/" prefix, see below
+cd /workspace/plot/contact_estimation/validation
 python plot_all_estimator_vs_sensor_zoom.py
 ```
 
@@ -143,21 +143,13 @@ python plot_all_estimator_vs_sensor_zoom.py --t0 25 --t1 33
 python plot_all_estimator_vs_sensor_zoom.py --npz-dir DIR --out-dir DIR
 ```
 
-### Container path gotcha
-
-`plot-tools-run` mounts only the repo's `plot/` folder at `/workspace` (not
-the repo root like `unitree_ros2_dev` does). So any host path under `plot/`
-must have the `plot/` prefix stripped when used inside this container, e.g.
-host `plot/contact_estimation/validation/` → container
-`/workspace/contact_estimation/validation/`.
-
 ## Containers
 
 | Script | Container | Why |
 |---|---|---|
 | `bag_topic_to_npz.py` | `unitree_ros2_dev` (`docker/run.sh`), **with ROS2/cyclonedds sourced** | needs `rosbag2_py`/`rclpy`/`rosidl_runtime_py` to read the raw `.db3` bag segments. |
 | `generate_input_data.py`, `run_all_bags.sh` | `unitree_ros2_dev` (`docker/run.sh`) | imports `pinocchio`; the default host shell's `matplotlib` is broken but pinocchio isn't needed there. This container mounts the whole repo at `/workspace`. |
-| `plot_all_estimator_vs_sensor_zoom.py` | `plot-tools-run` (`plot/run.sh`) | only needs `numpy`/`matplotlib`; the default shell's system `matplotlib` fails with `_ARRAY_API not found` (built against NumPy 1.x, NumPy 2.2.6 installed). This container mounts only `plot/` at `/workspace`. |
+| `plot_all_estimator_vs_sensor_zoom.py` | `plot-tools-run` (`plot/run.sh`) | only needs `numpy`/`matplotlib`; the default shell's system `matplotlib` fails with `_ARRAY_API not found` (built against NumPy 1.x, NumPy 2.2.6 installed). This container mounts the whole repo at `/workspace`, same as `unitree_ros2_dev`. |
 
 Only step 0 (`bag_topic_to_npz.py`) touches live bags and needs
 ROS2/cyclonedds sourced. Steps 1 and 2 consume already-converted `.npz`

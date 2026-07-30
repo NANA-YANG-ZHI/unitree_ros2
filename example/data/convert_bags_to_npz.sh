@@ -19,8 +19,8 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BAGS_DIR="${1:-$SCRIPT_DIR/2026_07_21}"
-OUT_DIR="${2:-$SCRIPT_DIR/npz_data/2026_07_21}"
+BAGS_DIR="${1:-$SCRIPT_DIR/2026_07_27}"
+OUT_DIR="${2:-$SCRIPT_DIR/npz_data/2026_07_27}"
 DUMP_SCRIPT="$SCRIPT_DIR/bag_topic_to_npz.py"
 
 mkdir -p "$OUT_DIR"
@@ -41,7 +41,8 @@ for bag_dir in "$BAGS_DIR"/*/; do
     # Discover topics in this bag from its metadata.yaml (same parsing
     # bag_topic_to_npz.py itself does), restricted to the lowstate/
     # sportmodestate topics generate_input_data.py actually needs (e.g.
-    # /lowstate, /sportmodestate, /lf/sportmodestate).
+    # /lowstate, /sportmodestate, /lf/sportmodestate) plus the excitation
+    # desired-trajectory topics (e.g. /excitation_height/desired).
     topics="$(python3 -c "
 import re
 import yaml
@@ -49,17 +50,17 @@ with open('$metadata') as f:
     meta = yaml.safe_load(f)
 for t in meta['rosbag2_bagfile_information']['topics_with_message_count']:
     name = t['topic_metadata']['name']
-    if re.search(r'(lowstate|sportmodestate)$', name, re.IGNORECASE):
+    if re.search(r'(lowstate|sportmodestate|desired)$', name, re.IGNORECASE):
         print(name)
 ")"
     if [ -z "$topics" ]; then
-        echo "== $bag_name: SKIP (no lowstate/sportmodestate topics found in metadata.yaml) =="
+        echo "== $bag_name: SKIP (no lowstate/sportmodestate/desired topics found in metadata.yaml) =="
         continue
     fi
 
     # Only segments _0 and _1 -- _2 and beyond are intentionally left out.
     segments=()
-    for suffix in 0 1; do
+    for suffix in 0; do
         for f in "$bag_dir"*"_${suffix}.db3"; do
             [ -e "$f" ] && segments+=("$f")
         done
